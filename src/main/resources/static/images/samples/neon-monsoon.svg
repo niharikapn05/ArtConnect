@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="night" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#090818"/>
+      <stop offset="1" stop-color="#2a0f3d"/>
+    </linearGradient>
+    <linearGradient id="wet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a0f3d"/>
+      <stop offset="1" stop-color="#0c0616"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#night)"/>
+  <g fill="#15122b">
+    <rect x="20" y="150" width="120" height="280"/><rect x="160" y="90" width="100" height="340"/>
+    <rect x="280" y="190" width="140" height="240"/><rect x="440" y="120" width="110" height="310"/>
+    <rect x="570" y="170" width="90" height="260"/><rect x="680" y="100" width="110" height="330"/>
+  </g>
+  <g fill="none" stroke-width="5" stroke-linecap="round">
+    <rect x="185" y="130" width="50" height="90" rx="6" stroke="#ff3fa4"/>
+    <path d="M300 230 H400" stroke="#27f2ff"/>
+    <path d="M460 170 H530 M460 190 H510" stroke="#ffe066"/>
+    <circle cx="735" cy="160" r="26" stroke="#ff3fa4"/>
+    <path d="M40 200 H120" stroke="#9d4edd"/>
+  </g>
+  <g fill="#ffe7a3" opacity="0.7">
+    <rect x="45" y="250" width="12" height="16"/><rect x="95" y="300" width="12" height="16"/>
+    <rect x="310" y="280" width="12" height="16"/><rect x="380" y="330" width="12" height="16"/>
+    <rect x="600" y="240" width="12" height="16"/><rect x="620" y="320" width="12" height="16"/>
+  </g>
+  <rect y="430" width="800" height="170" fill="url(#wet)"/>
+  <g stroke-width="6" stroke-linecap="round" opacity="0.45">
+    <path d="M185 450 V560" stroke="#ff3fa4"/><path d="M235 455 V540" stroke="#ff3fa4"/>
+    <path d="M300 460 H400" stroke="#27f2ff"/><path d="M320 490 H380" stroke="#27f2ff"/>
+    <path d="M460 470 H530" stroke="#ffe066"/>
+    <path d="M735 450 V590" stroke="#ff3fa4"/>
+  </g>
+  <g stroke="#b9c7ff" stroke-width="1.5" opacity="0.4">
+    <path d="M50 0 L20 120 M130 20 L100 140 M250 0 L220 120 M360 30 L330 150 M470 0 L440 120 M590 20 L560 140 M700 0 L670 120 M780 30 L750 150"/>
+    <path d="M90 300 L70 380 M430 280 L410 360 M650 300 L630 380"/>
+  </g>
+</svg>

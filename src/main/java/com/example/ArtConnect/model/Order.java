@@ -1,50 +1,92 @@
 package com.example.ArtConnect.model;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
-import java.util.Date;
-
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-@Document(collection = "orders")
+@Entity
+@Table(name = "orders")
 public class Order {
     @Id
-    private String id;
-    private String artworkId;
-    public String getId() {
-		return id;
-	}
-	public void setId(String id) {
-		this.id = id;
-	}
-	public String getArtworkId() {
-		return artworkId;
-	}
-	public void setArtworkId(String artworkId) {
-		this.artworkId = artworkId;
-	}
-	public String getBuyerId() {
-		return buyerId;
-	}
-	public void setBuyerId(String buyerId) {
-		this.buyerId = buyerId;
-	}
-	public String getStatus() {
-		return status;
-	}
-	public void setStatus(String status) {
-		this.status = status;
-	}
-	public Date getCreatedAt() {
-		return createdAt;
-	}
-	public void setCreatedAt(Date createdAt) {
-		this.createdAt = createdAt;
-	}
-	private String buyerId;
-    private String status; // pending/completed
-    private Date createdAt;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    // getters and setters
+    /** Null once the artwork has been deleted; the snapshot fields below keep the order readable. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "artwork_id")
+    private Artwork artwork;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "buyer_id")
+    private User buyer;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "artist_id")
+    private User artist;
+
+    @Column(name = "artwork_title", nullable = false, length = 120)
+    private String artworkTitle;
+
+    @Column(name = "image_url", nullable = false, length = 500)
+    private String imageUrl;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal price;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private OrderSource source;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private OrderStatus status;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    protected Order() {}
+
+    public Order(Artwork artwork, User buyer, OrderSource source, BigDecimal price) {
+        this.artwork = artwork;
+        this.buyer = buyer;
+        this.artist = artwork.getArtist();
+        this.artworkTitle = artwork.getTitle();
+        this.imageUrl = artwork.getImageUrl();
+        this.price = price;
+        this.source = source;
+        this.status = OrderStatus.PENDING;
+        this.createdAt = Instant.now();
+        this.updatedAt = this.createdAt;
+    }
+
+    public void changeStatus(OrderStatus status) {
+        this.status = status;
+        this.updatedAt = Instant.now();
+    }
+
+    public Long getId() { return id; }
+    public Artwork getArtwork() { return artwork; }
+    public User getBuyer() { return buyer; }
+    public User getArtist() { return artist; }
+    public String getArtworkTitle() { return artworkTitle; }
+    public String getImageUrl() { return imageUrl; }
+    public BigDecimal getPrice() { return price; }
+    public OrderSource getSource() { return source; }
+    public OrderStatus getStatus() { return status; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }

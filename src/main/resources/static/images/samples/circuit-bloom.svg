@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
+  <rect width="800" height="800" fill="#0b0f1f"/>
+  <g stroke="#1d2b4a" stroke-width="2">
+    <path d="M0 100 H800 M0 200 H800 M0 300 H800 M0 400 H800 M0 500 H800 M0 600 H800 M0 700 H800"/>
+    <path d="M100 0 V800 M200 0 V800 M300 0 V800 M400 0 V800 M500 0 V800 M600 0 V800 M700 0 V800"/>
+  </g>
+  <g fill="none" stroke-width="4" stroke-linecap="round">
+    <path d="M400 400 V220 H520 V120" stroke="#39e6c4"/>
+    <path d="M400 400 H600 V520 H700" stroke="#ff4fd8"/>
+    <path d="M400 400 V600 H260 V700" stroke="#39e6c4"/>
+    <path d="M400 400 H180 V280 H100" stroke="#ff4fd8"/>
+    <path d="M400 400 L540 260 H640" stroke="#ffd166"/>
+    <path d="M400 400 L260 540 H150" stroke="#ffd166"/>
+  </g>
+  <g fill="#0b0f1f" stroke-width="4">
+    <circle cx="520" cy="120" r="14" stroke="#39e6c4"/><circle cx="700" cy="520" r="14" stroke="#ff4fd8"/>
+    <circle cx="260" cy="700" r="14" stroke="#39e6c4"/><circle cx="100" cy="280" r="14" stroke="#ff4fd8"/>
+    <circle cx="640" cy="260" r="14" stroke="#ffd166"/><circle cx="150" cy="540" r="14" stroke="#ffd166"/>
+  </g>
+  <g transform="translate(400 400)">
+    <g fill="#ff4fd8" opacity="0.85">
+      <path d="M0 0 C40 -60 40 -120 0 -160 C-40 -120 -40 -60 0 0Z"/>
+      <path d="M0 0 C40 -60 40 -120 0 -160 C-40 -120 -40 -60 0 0Z" transform="rotate(72)"/>
+      <path d="M0 0 C40 -60 40 -120 0 -160 C-40 -120 -40 -60 0 0Z" transform="rotate(144)"/>
+      <path d="M0 0 C40 -60 40 -120 0 -160 C-40 -120 -40 -60 0 0Z" transform="rotate(216)"/>
+      <path d="M0 0 C40 -60 40 -120 0 -160 C-40 -120 -40 -60 0 0Z" transform="rotate(288)"/>
+    </g>
+    <g fill="#39e6c4" opacity="0.8">
+      <path d="M0 0 C25 -40 25 -80 0 -105 C-25 -80 -25 -40 0 0Z" transform="rotate(36)"/>
+      <path d="M0 0 C25 -40 25 -80 0 -105 C-25 -80 -25 -40 0 0Z" transform="rotate(108)"/>
+      <path d="M0 0 C25 -40 25 -80 0 -105 C-25 -80 -25 -40 0 0Z" transform="rotate(180)"/>
+      <path d="M0 0 C25 -40 25 -80 0 -105 C-25 -80 -25 -40 0 0Z" transform="rotate(252)"/>
+      <path d="M0 0 C25 -40 25 -80 0 -105 C-25 -80 -25 -40 0 0Z" transform="rotate(324)"/>
+    </g>
+    <circle r="36" fill="#ffd166"/>
+    <circle r="16" fill="#0b0f1f"/>
+  </g>
+</svg>

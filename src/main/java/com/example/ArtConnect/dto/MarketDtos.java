@@ -1,0 +1,58 @@
+package com.example.ArtConnect.dto;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+
+import com.example.ArtConnect.dto.ArtworkDtos.ArtworkResponse;
+import com.example.ArtConnect.model.Bid;
+import com.example.ArtConnect.model.Order;
+import com.example.ArtConnect.model.OrderSource;
+import com.example.ArtConnect.model.OrderStatus;
+import com.example.ArtConnect.model.Review;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+/** Orders, bids and reviews. */
+public final class MarketDtos {
+    private MarketDtos() {}
+
+    public record OrderResponse(Long id, Long artworkId, String artworkTitle, String imageUrl, BigDecimal price,
+                                OrderSource source, OrderStatus status, Long buyerId, String buyerName,
+                                Long artistId, String artistName, Instant createdAt, Instant updatedAt) {
+        public static OrderResponse from(Order o) {
+            return new OrderResponse(o.getId(), o.getArtwork() == null ? null : o.getArtwork().getId(),
+                    o.getArtworkTitle(), o.getImageUrl(), o.getPrice(), o.getSource(), o.getStatus(),
+                    o.getBuyer().getId(), o.getBuyer().getDisplayName(),
+                    o.getArtist().getId(), o.getArtist().getDisplayName(), o.getCreatedAt(), o.getUpdatedAt());
+        }
+    }
+
+    public record BidRequest(@NotNull @DecimalMin("1") @Digits(integer = 10, fraction = 2) BigDecimal amount) {}
+
+    public record BidResponse(Long id, BigDecimal amount, Long bidderId, String bidderName, Instant createdAt) {
+        public static BidResponse from(Bid b) {
+            return new BidResponse(b.getId(), b.getAmount(), b.getBidder().getId(),
+                    b.getBidder().getDisplayName(), b.getCreatedAt());
+        }
+    }
+
+    /** An auction the current user has bid on, with how they stand. */
+    public record MyBidResponse(ArtworkResponse artwork, BigDecimal myHighestBid, boolean leading, boolean won) {}
+
+    public record ReviewRequest(@Min(1) @Max(5) int rating, @NotBlank @Size(max = 1000) String comment) {}
+
+    public record ReviewResponse(Long id, Long artworkId, int rating, String comment, Long authorId,
+                                 String authorName, String authorAvatarUrl, Instant createdAt) {
+        public static ReviewResponse from(Review r) {
+            return new ReviewResponse(r.getId(), r.getArtwork().getId(), r.getRating(), r.getComment(),
+                    r.getAuthor().getId(), r.getAuthor().getDisplayName(), r.getAuthor().getAvatarUrl(),
+                    r.getCreatedAt());
+        }
+    }
+}

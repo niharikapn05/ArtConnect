@@ -1,9 +1,13 @@
 package com.example.ArtConnect.repository;
 
-import com.example.ArtConnect.model.*;
-import org.springframework.data.mongodb.repository.MongoRepository;
 import java.util.List;
 
-public interface OrderRepository extends MongoRepository<Order, String> {
-    List<Order> findByBuyerId(String buyerId);
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.example.ArtConnect.model.Order;
+
+public interface OrderRepository extends JpaRepository<Order, Long> {
+    List<Order> findByBuyerIdOrderByCreatedAtDesc(Long buyerId);
+
+    List<Order> findByArtistIdOrderByCreatedAtDesc(Long artistId);
 }

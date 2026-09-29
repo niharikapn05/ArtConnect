@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9ecef"/>
+      <stop offset="1" stop-color="#ced4da"/>
+    </linearGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8f9fa"/>
+      <stop offset="0.6" stop-color="#adb5bd"/>
+      <stop offset="1" stop-color="#6c757d"/>
+    </linearGradient>
+    <linearGradient id="stone2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dee2e6"/>
+      <stop offset="1" stop-color="#495057"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#wall)"/>
+  <rect y="470" width="800" height="130" fill="#adb5bd"/>
+  <ellipse cx="400" cy="470" rx="230" ry="22" fill="#6c757d" opacity="0.45"/>
+  <path d="M200 460 C190 360 260 250 360 230 C440 214 470 290 430 330 C400 360 330 350 330 400 C330 440 380 460 420 460Z" fill="url(#stone)"/>
+  <path d="M420 460 C400 400 450 340 520 320 C600 300 640 360 610 410 C590 445 540 460 500 462Z" fill="url(#stone2)"/>
+  <ellipse cx="380" cy="300" rx="28" ry="36" fill="#e9ecef" transform="rotate(-25 380 300)"/>
+  <ellipse cx="380" cy="300" rx="16" ry="22" fill="#6c757d" opacity="0.5" transform="rotate(-25 380 300)"/>
+</svg>
