@@ -49,7 +49,7 @@ public class Order {
     private OrderSource source;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private OrderStatus status;
 
     @Column(name = "created_at", nullable = false)
@@ -58,9 +58,27 @@ public class Order {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    // Payment gateway details
+    @Column(name = "payment_provider", length = 20)
+    private String paymentProvider;
+
+    /** The gateway's order id (e.g. Razorpay "order_..."), created at checkout. */
+    @Column(name = "provider_order_id", length = 64, unique = true)
+    private String providerOrderId;
+
+    @Column(name = "payment_id", length = 64)
+    private String paymentId;
+
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
+    /** An unpaid order is cancelled and the artwork released after this time; null means no expiry. */
+    @Column(name = "hold_expires_at")
+    private Instant holdExpiresAt;
+
     protected Order() {}
 
-    public Order(Artwork artwork, User buyer, OrderSource source, BigDecimal price) {
+    public Order(Artwork artwork, User buyer, OrderSource source, BigDecimal price, Instant holdExpiresAt) {
         this.artwork = artwork;
         this.buyer = buyer;
         this.artist = artwork.getArtist();
@@ -68,7 +86,8 @@ public class Order {
         this.imageUrl = artwork.getImageUrl();
         this.price = price;
         this.source = source;
-        this.status = OrderStatus.PENDING;
+        this.status = OrderStatus.AWAITING_PAYMENT;
+        this.holdExpiresAt = holdExpiresAt;
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
     }
@@ -77,6 +96,20 @@ public class Order {
         this.status = status;
         this.updatedAt = Instant.now();
     }
+
+    public void attachPaymentOrder(String provider, String providerOrderId) {
+        this.paymentProvider = provider;
+        this.providerOrderId = providerOrderId;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markPaid(String paymentId) {
+        this.paymentId = paymentId;
+        this.paidAt = Instant.now();
+        this.holdExpiresAt = null;
+        changeStatus(OrderStatus.PAID);
+    }
+
 
     public Long getId() { return id; }
     public Artwork getArtwork() { return artwork; }
@@ -89,4 +122,9 @@ public class Order {
     public OrderStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public String getPaymentProvider() { return paymentProvider; }
+    public String getProviderOrderId() { return providerOrderId; }
+    public String getPaymentId() { return paymentId; }
+    public Instant getPaidAt() { return paidAt; }
+    public Instant getHoldExpiresAt() { return holdExpiresAt; }
 }

@@ -21,8 +21,9 @@ export function StudioPage() {
   const exhibitions = useApi(`/api/artists/${user.id}`);
   const [actionError, setActionError] = useState("");
 
-  const pendingSales = sales.data?.filter((order) => order.status === "PENDING").length ?? 0;
-  const revenue = sales.data?.filter((order) => order.status === "COMPLETED").reduce((sum, order) => sum + order.price, 0) ?? 0;
+  const pendingSales = sales.data?.filter((order) => order.status === "PAID").length ?? 0;
+  const revenue = sales.data?.filter((order) => order.status === "PAID" || order.status === "COMPLETED")
+    .reduce((sum, order) => sum + order.price, 0) ?? 0;
 
   async function deleteArtwork(artwork) {
     if (!window.confirm(`Delete "${artwork.title}"? This can't be undone.`)) return;
@@ -54,21 +55,21 @@ export function StudioPage() {
         </div>
         <div className="d-flex flex-wrap gap-2">
           <Link to="/studio/upload" className="btn btn-primary">Upload artwork</Link>
-          <Link to="/exhibitions/new" className="btn btn-outline-light">New exhibition</Link>
+          <Link to="/exhibitions/new" className="btn btn-outline-dark">New exhibition</Link>
         </div>
       </div>
 
       <div className="stat-row">
         <Stat label="Artworks" value={artworks.data?.length ?? "–"} />
         <Stat label="For sale" value={artworks.data?.filter((a) => a.status === "AVAILABLE").length ?? "–"} />
-        <Stat label="Awaiting action" value={sales.data ? pendingSales : "–"} />
-        <Stat label="Completed sales" value={sales.data ? formatPrice(revenue) : "–"} />
+        <Stat label="Paid, to deliver" value={sales.data ? pendingSales : "–"} />
+        <Stat label="Revenue received" value={sales.data ? formatPrice(revenue) : "–"} />
       </div>
 
       <div className="filter-buttons justify-content-start" role="tablist">
         {TABS.map((item) => (
           <button key={item.id} type="button" role="tab" aria-selected={tab === item.id}
-            className={`btn ${tab === item.id ? "btn-primary" : "btn-outline-light"}`}
+            className={`btn ${tab === item.id ? "btn-primary" : "btn-outline-dark"}`}
             onClick={() => setParams({ tab: item.id })}>
             {item.label}{item.id === "sales" && pendingSales > 0 ? ` (${pendingSales})` : ""}
           </button>
@@ -83,7 +84,7 @@ export function StudioPage() {
             empty="You haven't uploaded any artwork yet."
             actions={(artwork) => (
               <>
-                {artwork.status !== "SOLD" && <Link to={`/studio/artworks/${artwork.id}/edit`} className="btn btn-outline-light btn-sm">Edit</Link>}
+                {artwork.status === "AVAILABLE" && <Link to={`/studio/artworks/${artwork.id}/edit`} className="btn btn-outline-dark btn-sm">Edit</Link>}
                 <button type="button" className="btn btn-danger btn-sm" onClick={() => deleteArtwork(artwork)}>Delete</button>
               </>
             )}
@@ -95,7 +96,7 @@ export function StudioPage() {
         <PageState loading={sales.loading} error={sales.error}>
           {sales.data?.length ? (
             <div className="table-responsive glass-panel">
-              <table className="table table-dark table-hover align-middle mb-0">
+              <table className="table table-hover align-middle mb-0">
                 <thead><tr><th>Artwork</th><th>Buyer</th><th>Price</th><th>Type</th><th>Date</th><th>Status</th><th /></tr></thead>
                 <tbody>
                   {sales.data.map((order) => (
@@ -107,8 +108,8 @@ export function StudioPage() {
                       <td>{formatDate(order.createdAt)}</td>
                       <td><OrderStatus status={order.status} /></td>
                       <td className="text-end">
-                        {order.status === "PENDING" && (
-                          <button type="button" className="btn btn-success btn-sm" onClick={() => completeSale(order)}>Mark completed</button>
+                        {order.status === "PAID" && (
+                          <button type="button" className="btn btn-success btn-sm" onClick={() => completeSale(order)}>Mark delivered</button>
                         )}
                       </td>
                     </tr>
@@ -140,9 +141,16 @@ function Stat({ label, value }) {
   );
 }
 
+const ORDER_STATUS = {
+  AWAITING_PAYMENT: { label: "Awaiting payment", style: "bg-warning text-dark" },
+  PAID: { label: "Paid", style: "bg-info text-dark" },
+  COMPLETED: { label: "Delivered", style: "bg-success" },
+  CANCELLED: { label: "Cancelled", style: "bg-secondary" },
+};
+
 export function OrderStatus({ status }) {
-  const styles = { PENDING: "bg-warning text-dark", COMPLETED: "bg-success", CANCELLED: "bg-secondary" };
-  return <span className={`badge ${styles[status]}`}>{status.charAt(0) + status.slice(1).toLowerCase()}</span>;
+  const { label, style } = ORDER_STATUS[status] ?? { label: status, style: "bg-secondary" };
+  return <span className={`badge ${style}`}>{label}</span>;
 }
 
 const EMPTY_FORM = {
@@ -307,7 +315,7 @@ export function ArtworkFormPage() {
             <button className="btn btn-primary" type="submit" disabled={saving}>
               {saving ? (id ? "Saving..." : "Uploading...") : (id ? "Save changes" : "Publish artwork")}
             </button>
-            <Link to="/studio" className="btn btn-outline-light">Cancel</Link>
+            <Link to="/studio" className="btn btn-outline-dark">Cancel</Link>
           </div>
         </form>
       </PageState>

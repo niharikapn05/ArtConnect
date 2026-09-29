@@ -43,8 +43,11 @@ function AuthForm({ mode }) {
   return (
     <main className="center-box">
       <section className="card p-4 auth-card">
-        <h1 className="text-center mb-3 text-dark fw-bold">{isRegister ? "Join ArtConnect" : "Welcome back"}</h1>
-        {location.state?.message && <p className="text-center text-secondary" role="status">{location.state.message}</p>}
+        <h1 className="auth-title">{isRegister ? "Join ArtConnect" : "Welcome back"}</h1>
+        <p className="auth-subtitle">
+          {isRegister ? "Collect original art, or open a studio and sell your own." : "Log in to buy, bid and manage your collection."}
+        </p>
+        {location.state?.message && <p className="auth-notice" role="status">{location.state.message}</p>}
         <form onSubmit={submit}>
           {isRegister && (
             <fieldset className="mb-3">
@@ -76,7 +79,7 @@ function AuthForm({ mode }) {
             <input className="form-control" id="password" name="password" type="password" autoComplete={isRegister ? "new-password" : "current-password"} required minLength={isRegister ? 6 : undefined} />
           </div>
           {error && <p className="text-danger" role="alert">{error}</p>}
-          <button className={`btn ${isRegister ? "btn-success" : "btn-dark"} w-100`} type="submit" disabled={submitting}>
+          <button className="btn btn-primary btn-lg w-100" type="submit" disabled={submitting}>
             {submitting ? "Please wait..." : isRegister ? "Create account" : "Log in"}
           </button>
         </form>
@@ -147,7 +150,7 @@ export function ProfilePage() {
         <div className="avatar-editor">
           <Avatar src={user.avatarUrl} name={user.displayName} size={96} />
           <div>
-            <label className="btn btn-outline-light btn-sm" htmlFor="avatar">{uploading ? "Uploading..." : "Change photo"}</label>
+            <label className="btn btn-outline-dark btn-sm" htmlFor="avatar">{uploading ? "Uploading..." : "Change photo"}</label>
             <input id="avatar" type="file" accept="image/*" className="visually-hidden" onChange={uploadAvatar} disabled={uploading} />
             <p className="mb-0 mt-1"><small>@{user.username} · {isArtist ? "Artist" : "Collector"} account</small></p>
             {isArtist && <Link to={`/artists/${user.id}`}><small>View public profile</small></Link>}

@@ -8,8 +8,8 @@ export function ArtistsPage() {
   const { data: artists, loading, error } = useApi("/api/artists");
   return (
     <section className="container page-section">
-      <h2 className="text-center mb-2">Artists</h2>
-      <p className="text-center lead-muted mb-4">Meet the creators behind the work.</p>
+      <h1 className="page-title">Artists &amp; dealers</h1>
+      <p className="page-intro">Meet the people behind the work.</p>
       <PageState loading={loading} error={error}>
         {artists?.length ? (
           <div className="artist-grid">

@@ -11,7 +11,8 @@ Artists showcase and sell their work, and art lovers browse by category, buy pie
 - 🧑‍🎨 **Artist profiles** – Public profile with photo, bio, location, website, all artworks, exhibitions and average rating.
 - 🖼️ **Upload artwork** – Title, description, category, tags, medium, dimensions, year and price, with the image stored in Cloudinary.
 - 🗂️ **Browse & search** – Filter by category, sale type and availability; search by title, description or artist; sort by newest, price, rating or ending soon; paginated.
-- 🛒 **Purchasing** – Fixed-price artworks can be bought once (row-level locking prevents double sales). Buyers can cancel pending orders; artists mark sales completed.
+- 🛒 **Purchasing** – Fixed-price artworks can be bought once (row-level locking prevents double sales). Buy now reserves the artwork for 30 minutes while the buyer pays; unpaid reservations are released automatically.
+- 💳 **Online payments (Razorpay)** – UPI, cards, netbanking and wallets through Razorpay Checkout. Every payment is verified server-side with Razorpay's signature, and a webhook records payments even if the buyer closes the tab. Auction winners pay the same way from *My Collection*. A demo mode (default) lets you try the flow locally without keys or real money.
 - 🔨 **Auctions** – Timed auctions with a minimum 5% bid increment, bid history, live countdowns and anti-sniping (late bids extend the auction by 2 minutes). Finished auctions are settled automatically: the winner gets an order, or an unsold piece becomes a fixed-price listing.
 - ⭐ **Reviews** – 1–5 star reviews with comments (one per user per artwork; artists can't review their own work), rolled up into artwork and artist ratings.
 - 🏛️ **Exhibitions** – Artists curate ordered exhibitions of their work with opening and closing dates (upcoming / now showing / past).
@@ -49,7 +50,9 @@ Tables are created automatically by Flyway on first start (`src/main/resources/d
 
 #### Sample data
 
-A fresh database is also filled with demo content from `src/main/resources/db/sample/V1_1__sample_data.sql`: 4 artists, 3 collectors and an admin, 14 artworks across every category (with images in `static/images/samples`), 3 live auctions with bids, a finished auction, orders, reviews and 4 exhibitions (upcoming, ongoing and past). Dates are relative to the day the database is created, so the auctions are live and the exhibitions are current.
+A fresh database is also filled with demo content from the SQL files in `src/main/resources/db/sample/`: 4 demo sellers, 3 collectors and an admin, 14 artworks (paintings, drawing, photography, prints, sculpture and textile), live auctions with bids, a finished auction awaiting payment, orders, reviews and 4 exhibitions (upcoming, ongoing and past). Dates are relative to the day the database is created, so the auctions are live and the exhibitions are current.
+
+The sample listings use photographs of famous **public-domain / CC0 artworks** (Monet, Van Gogh, Seurat, Hokusai, Rodin and others, from Wikimedia Commons) as placeholder images, each credited in its description. See [`static/images/samples/CREDITS.md`](src/main/resources/static/images/samples/CREDITS.md) for every source and licence.
 
 Every demo account uses the password **`password123`**:
 
@@ -89,9 +92,45 @@ The tests run against an in-memory H2 database in PostgreSQL mode (no local data
 
 ### Deploy
 
-`docker build -t artconnect .` builds the React app and bundles it into the Spring Boot jar, so one container serves both the site and the API. Set `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, the `CLOUDINARY_*` variables and `FLYWAY_LOCATIONS=classpath:db/migration` (so the demo accounts are not created) on the host. To host the frontend separately instead, set `VITE_API_BASE_URL` when building it and `FRONTEND_ORIGIN` on the API.
+`docker build -t artconnect .` builds the React app and bundles it into the Spring Boot jar, so one container serves both the site and the API. Set `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, the `CLOUDINARY_*` variables, the Razorpay variables (see [Payments](#-payments)) and `FLYWAY_LOCATIONS=classpath:db/migration` (so the demo accounts are not created) on the host. To host the frontend separately instead, set `VITE_API_BASE_URL` when building it and `FRONTEND_ORIGIN` on the API.
 
 Admin accounts can't be created through the API: promote a user with `UPDATE app_users SET role = 'ADMIN' WHERE username = '...'`.
+
+---
+
+## 💳 Payments
+
+Purchases go through [Razorpay](https://razorpay.com):
+
+1. **Buy now** reserves the artwork (30 minutes) and creates an order awaiting payment, plus a matching Razorpay order.
+2. The browser opens Razorpay Checkout (UPI, cards, netbanking, wallets).
+3. On success the backend verifies Razorpay's HMAC-SHA256 signature before marking the order **Paid** and the artwork **Sold**. A forged "payment succeeded" from the browser is rejected.
+4. The Razorpay webhook marks the order paid even if the buyer closes the page before step 3.
+5. If the buyer doesn't pay in time, the reservation is released and the artwork goes back on sale.
+
+Order statuses: **Awaiting payment → Paid → Delivered** (the artist marks it delivered), or **Cancelled** before payment.
+Auction winners get an order awaiting payment and pay from *My Collection*.
+
+### Demo mode (default)
+
+With `PAYMENT_PROVIDER=mock` (the default) no gateway is contacted and a clearly labelled demo payment screen stands in for Razorpay, so the whole flow works locally without keys. **Never run production in demo mode.**
+
+### Using Razorpay
+
+1. Create a free account at https://dashboard.razorpay.com and stay in **Test Mode**.
+2. *Account & Settings → API Keys → Generate Test Key*, then add to `.env`:
+
+       PAYMENT_PROVIDER=razorpay
+       RAZORPAY_KEY_ID=rzp_test_xxxxxxxx
+       RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxx
+
+3. Restart the backend. Pay with Razorpay's [test cards or UPI IDs](https://razorpay.com/docs/payments/payments/test-card-upi-details/) (for example UPI `success@razorpay`); no real money moves with test keys.
+4. *(Recommended; required in production)* Add a webhook under *Account & Settings → Webhooks*: URL `https://your-domain/api/payments/razorpay/webhook`, events `payment.captured` and `order.paid`, and a secret, which you set as `RAZORPAY_WEBHOOK_SECRET`. Webhooks need a public URL; locally you can use a tunnel such as ngrok.
+5. Keep **automatic capture** enabled in Razorpay's payment settings (the default).
+
+To go live, complete Razorpay's KYC activation and swap in the `rzp_live_...` keys.
+
+Paid orders can't be cancelled in the app. Refunds are issued from the Razorpay dashboard. If a payment ever arrives after its reservation expired and the artwork was sold to someone else, the server logs `REFUND NEEDED` with the payment id.
 
 ---
 
@@ -106,7 +145,10 @@ Admin accounts can't be created through the API: promote a user with `UPDATE app
 | GET | `/api/categories` | Artwork categories |
 | GET | `/api/artworks?q=&category=&tag=&saleType=&status=&artistId=&minPrice=&maxPrice=&liveAuctions=&sort=&page=&size=` | Browse |
 | GET / POST / PUT / DELETE | `/api/artworks`, `/api/artworks/{id}` | Artwork CRUD (upload is multipart) |
-| POST | `/api/artworks/{id}/purchase` | Buy a fixed-price artwork |
+| POST | `/api/artworks/{id}/purchase` | Start buying a fixed-price artwork: reserves it and returns checkout details |
+| POST | `/api/orders/{id}/checkout` | Get checkout details for an unpaid order (e.g. a won auction) |
+| POST | `/api/orders/{id}/payment` | Confirm a payment; the server verifies the gateway signature |
+| POST | `/api/payments/razorpay/webhook` | Razorpay server-to-server payment notifications |
 | GET / POST | `/api/artworks/{id}/bids` | Bid history / place a bid |
 | GET / POST | `/api/artworks/{id}/reviews`, DELETE `/api/reviews/{id}` | Reviews |
 | POST | `/api/orders/{id}/cancel`, `/api/orders/{id}/complete` | Order lifecycle |
@@ -139,10 +181,4 @@ Errors are returned as `{"message": "..."}` with an appropriate HTTP status.
     │   └── application.properties
     ├── Dockerfile
     └── pom.xml
-
-👩‍🎨 Author
-
-<a href="https://github.com/chandana">Chandana</a> · [LinkedIn](https://www.linkedin.com/in/chandana) · [Instagram](https://www.instagram.com/chandana) · chandana290403@gmail.com
-
-
 

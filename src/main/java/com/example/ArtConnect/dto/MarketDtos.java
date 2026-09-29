@@ -24,14 +24,29 @@ public final class MarketDtos {
 
     public record OrderResponse(Long id, Long artworkId, String artworkTitle, String imageUrl, BigDecimal price,
                                 OrderSource source, OrderStatus status, Long buyerId, String buyerName,
-                                Long artistId, String artistName, Instant createdAt, Instant updatedAt) {
+                                Long artistId, String artistName, Instant createdAt, Instant updatedAt,
+                                String paymentId, Instant paidAt, Instant holdExpiresAt) {
         public static OrderResponse from(Order o) {
             return new OrderResponse(o.getId(), o.getArtwork() == null ? null : o.getArtwork().getId(),
                     o.getArtworkTitle(), o.getImageUrl(), o.getPrice(), o.getSource(), o.getStatus(),
                     o.getBuyer().getId(), o.getBuyer().getDisplayName(),
-                    o.getArtist().getId(), o.getArtist().getDisplayName(), o.getCreatedAt(), o.getUpdatedAt());
+                    o.getArtist().getId(), o.getArtist().getDisplayName(), o.getCreatedAt(), o.getUpdatedAt(),
+                    o.getPaymentId(), o.getPaidAt(), o.getHoldExpiresAt());
         }
     }
+
+    /**
+     * Everything the browser needs to open the payment gateway's checkout.
+     * amount is in the smallest currency unit (paise for INR), as gateways expect.
+     */
+    public record CheckoutResponse(Long orderId, String provider, String keyId, String providerOrderId,
+                                   long amount, String currency, String artworkTitle, String buyerName,
+                                   Instant holdExpiresAt) {}
+
+    /** What the gateway's checkout returns to the browser after a successful payment. */
+    public record PaymentConfirmation(@NotBlank @Size(max = 64) String providerOrderId,
+                                      @NotBlank @Size(max = 64) String paymentId,
+                                      @NotBlank @Size(max = 256) String signature) {}
 
     public record BidRequest(@NotNull @DecimalMin("1") @Digits(integer = 10, fraction = 2) BigDecimal amount) {}
 

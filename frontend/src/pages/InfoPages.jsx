@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
 
+/** Where contact-form messages are delivered (via FormSubmit). Set VITE_CONTACT_EMAIL in frontend/.env.local. */
+const CONTACT_EMAIL = import.meta.env.VITE_CONTACT_EMAIL?.trim();
+
 export function AboutPage() {
   return (
     <section className="info-page">
@@ -16,24 +19,21 @@ export function AboutPage() {
 export function ContactPage() {
   return (
     <section className="info-page">
-      <h1>Contact Me</h1>
-      <p>We would love to hear from artists, viewers, and anyone interested in exploring or contributing to the ArtConnect platform.</p>
-      <p>If you have suggestions, feedback, collaboration ideas, or questions related to the platform, feel free to reach out using the contact details below.</p>
-      <p>Your feedback helps improve the platform and supports the goal of building a more connected and creative online art community.</p>
-      <form action="https://formsubmit.co/chandana290403@gmail.com" method="POST">
-        <input type="text" name="name" placeholder="Your Name" aria-label="Your name" required />
-        <input type="email" name="email" placeholder="Your Email" aria-label="Your email" required />
-        <textarea name="message" rows="5" placeholder="Your Message" aria-label="Your message" required />
-        <input type="text" name="_honey" className="honeypot" tabIndex="-1" autoComplete="off" />
-        <input type="hidden" name="_captcha" value="false" />
-        <button type="submit">Send Message</button>
-      </form>
-      <div className="social-icons">
-        <a href="https://www.linkedin.com/in/chandana" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><i className="fab fa-linkedin" /></a>
-        <a href="https://github.com/chandana" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><i className="fab fa-github" /></a>
-        <a href="https://www.instagram.com/chandana" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><i className="fab fa-instagram" /></a>
-        <a href="mailto:chandana290403@gmail.com" aria-label="Email Chandana"><i className="fas fa-envelope" /></a>
-      </div>
+      <h1>Contact us</h1>
+      <p>Questions about an order, selling your work, or anything else? Send us a message and our team will get back to you as soon as possible.</p>
+      <p>For questions about a specific artwork, you can also reach the seller through their profile on the <Link to="/artists">Artists</Link> page.</p>
+      {CONTACT_EMAIL ? (
+        <form action={`https://formsubmit.co/${encodeURIComponent(CONTACT_EMAIL)}`} method="POST">
+          <input type="text" name="name" placeholder="Your name" aria-label="Your name" required />
+          <input type="email" name="email" placeholder="Your email" aria-label="Your email" required />
+          <textarea name="message" rows="5" placeholder="How can we help?" aria-label="Your message" required />
+          <input type="text" name="_honey" className="honeypot" tabIndex="-1" autoComplete="off" />
+          <input type="hidden" name="_captcha" value="false" />
+          <button type="submit">Send message</button>
+        </form>
+      ) : (
+        <p className="empty-state">The contact form isn't available right now. Please try again later.</p>
+      )}
     </section>
   );
 }

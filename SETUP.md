@@ -85,6 +85,14 @@ Create a free account, open the *Dashboard*, and copy the three values into `.en
 
 Everything else (browsing, buying, bidding, reviews, and the sample data) works without Cloudinary; only *uploading new images* needs it.
 
+**Payments (optional):** out of the box, payments run in **demo mode**: clicking *Buy now* shows a demo payment screen and no money moves. To try the real Razorpay checkout (UPI, cards, netbanking), create a free Razorpay account, generate **Test Mode** keys, and add:
+
+    PAYMENT_PROVIDER=razorpay
+    RAZORPAY_KEY_ID=rzp_test_...
+    RAZORPAY_KEY_SECRET=...
+
+Test keys never charge real money. See the *Payments* section of [README.md](README.md#-payments) for test UPI IDs and webhook setup.
+
 > `.env` is ignored by git. Never commit it or share it publicly.
 
 ---
@@ -120,6 +128,8 @@ Open a **second** terminal:
     npm run dev
 
 `npm install` is only needed the first time (and after dependencies change).
+
+*(Optional)* To make the **Contact us** form work, copy `frontend/.env.example` to `frontend/.env.local` and set `VITE_CONTACT_EMAIL` to the address that should receive messages. The first message triggers a confirmation email from FormSubmit that must be clicked once. Without it, the Contact page shows a short "not available" note instead of the form.
 It is ready when you see `Local: http://localhost:5173/`.
 
 **Leave this terminal open too.**
@@ -177,6 +187,9 @@ Open http://localhost:5173. To stop a server, press **Ctrl + C** in its terminal
 | Website loads but shows errors / no artworks | The backend isn't running, or not on port 8081. Start it (step 5) and refresh. |
 | `npm install` fails | Check `node -v` meets the version in step 1, then delete `frontend/node_modules` and retry. |
 | Image upload says it failed | Check the three `CLOUDINARY_*` values in `.env`, then restart the backend. |
+| Backend won't start: `needs RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET` | You set `PAYMENT_PROVIDER=razorpay` without keys. Add the keys, or set `PAYMENT_PROVIDER=mock`. |
+| "The payment service is unavailable" | The Razorpay keys are wrong, or the server can't reach api.razorpay.com. Check the keys and the backend log. |
+| An artwork shows **Reserved** | A buyer started checkout and has 30 minutes to pay. If they don't, it returns to sale automatically. |
 | Changed `.env` but nothing happened | `.env` is read at startup. Restart the backend (Ctrl + C, then step 5 again). |
 
 ---

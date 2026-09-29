@@ -101,7 +101,7 @@ public class AuctionService {
                         .thenComparing(Artwork::getAuctionEndsAt, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(a -> {
                     boolean leading = user.sameAs(a.getHighestBidder());
-                    boolean won = leading && a.getStatus() == ArtworkStatus.SOLD;
+                    boolean won = leading && a.getStatus() != ArtworkStatus.AVAILABLE;
                     return new MyBidResponse(ArtworkResponse.from(a), myHighest.get(a.getId()), leading, won);
                 })
                 .toList();

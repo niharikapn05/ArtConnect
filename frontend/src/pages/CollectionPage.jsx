@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { mediaUrl, request, useApi } from "../api.js";
 import { Countdown, EmptyState, PageState } from "../components.jsx";
 import { formatDate, formatPrice } from "../format.js";
+import { PaymentCancelled, usePayment } from "../payment.jsx";
 import { OrderStatus } from "./StudioPages.jsx";
 
 /** A collector's purchases and auction bids. */
@@ -12,6 +13,26 @@ export default function CollectionPage() {
   const orders = useApi("/api/me/orders");
   const bids = useApi("/api/me/bids");
   const [actionError, setActionError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [payingId, setPayingId] = useState(null);
+  const { payForCheckout, paymentDialog } = usePayment();
+
+  async function pay(order) {
+    setActionError("");
+    setNotice("");
+    setPayingId(order.id);
+    try {
+      const checkout = await request(`/api/orders/${order.id}/checkout`, { method: "POST" });
+      const paid = await payForCheckout(checkout);
+      orders.setData((current) => current.map((item) => (item.id === paid.id ? paid : item)));
+      setNotice(`Payment received for "${paid.artworkTitle}". The artist will arrange delivery.`);
+    } catch (payError) {
+      if (!(payError instanceof PaymentCancelled)) setActionError(payError.message);
+      orders.reload({ quiet: true });
+    } finally {
+      setPayingId(null);
+    }
+  }
 
   async function cancel(order) {
     if (!window.confirm(`Cancel your order for "${order.artworkTitle}"? It will go back on sale.`)) return;
@@ -29,10 +50,12 @@ export default function CollectionPage() {
       <h2 className="mb-1">My Collection</h2>
       <p className="lead-muted">Your purchases and auction activity.</p>
       <div className="filter-buttons justify-content-start" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === "orders"} className={`btn ${tab === "orders" ? "btn-primary" : "btn-outline-light"}`} onClick={() => setParams({})}>Orders</button>
-        <button type="button" role="tab" aria-selected={tab === "bids"} className={`btn ${tab === "bids" ? "btn-primary" : "btn-outline-light"}`} onClick={() => setParams({ tab: "bids" })}>Bids</button>
+        <button type="button" role="tab" aria-selected={tab === "orders"} className={`btn ${tab === "orders" ? "btn-primary" : "btn-outline-dark"}`} onClick={() => setParams({})}>Orders</button>
+        <button type="button" role="tab" aria-selected={tab === "bids"} className={`btn ${tab === "bids" ? "btn-primary" : "btn-outline-dark"}`} onClick={() => setParams({ tab: "bids" })}>Bids</button>
       </div>
       {actionError && <p className="text-danger" role="alert">{actionError}</p>}
+      {notice && <p className="text-success-light" role="status">{notice}</p>}
+      {paymentDialog}
 
       {tab === "orders" && (
         <PageState loading={orders.loading} error={orders.error}>
@@ -45,11 +68,20 @@ export default function CollectionPage() {
                     <h3>{order.artworkId ? <Link to={`/artworks/${order.artworkId}`}>{order.artworkTitle}</Link> : order.artworkTitle}</h3>
                     <p>by <Link to={`/artists/${order.artistId}`}>{order.artistName}</Link> · {order.source === "AUCTION" ? "Won at auction" : "Purchased"} {formatDate(order.createdAt)}</p>
                     <p className="order-price">{formatPrice(order.price)}</p>
+                    {order.status === "AWAITING_PAYMENT" && order.holdExpiresAt && (
+                      <p>Reserved for you for <Countdown endsAt={order.holdExpiresAt} /></p>
+                    )}
+                    {order.paymentId && <p>Payment ref. <code>{order.paymentId}</code></p>}
                   </div>
                   <div className="order-actions">
                     <OrderStatus status={order.status} />
-                    {order.status === "PENDING" && (
-                      <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => cancel(order)}>Cancel</button>
+                    {order.status === "AWAITING_PAYMENT" && (
+                      <>
+                        <button type="button" className="btn btn-primary btn-sm" disabled={payingId !== null} onClick={() => pay(order)}>
+                          {payingId === order.id ? "Processing..." : "Pay now"}
+                        </button>
+                        <button type="button" className="btn btn-outline-danger btn-sm" disabled={payingId !== null} onClick={() => cancel(order)}>Cancel</button>
+                      </>
                     )}
                   </div>
                 </article>

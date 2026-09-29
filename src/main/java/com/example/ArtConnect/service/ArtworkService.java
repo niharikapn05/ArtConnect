@@ -96,6 +96,9 @@ public class ArtworkService {
         if (artwork.getStatus() == ArtworkStatus.SOLD) {
             throw ApiException.conflict("Sold artworks can no longer be edited");
         }
+        if (artwork.getStatus() == ArtworkStatus.RESERVED) {
+            throw ApiException.conflict("This artwork is reserved while a buyer pays and can't be edited right now");
+        }
         if (artwork.getBidCount() > 0 && form.price().compareTo(artwork.getPrice()) != 0) {
             throw ApiException.conflict("The starting bid can't change once bidding has started");
         }
@@ -109,6 +112,9 @@ public class ArtworkService {
         requireOwnerOrAdmin(user, artwork);
         if (artwork.isAuctionLive(Instant.now()) && artwork.getBidCount() > 0) {
             throw ApiException.conflict("An auction with bids can't be deleted before it ends");
+        }
+        if (artwork.getStatus() == ArtworkStatus.RESERVED) {
+            throw ApiException.conflict("This artwork is reserved while a buyer pays and can't be deleted right now");
         }
         // Remove it from exhibitions through JPA so the ordered join table is rewritten without gaps
         for (Exhibition exhibition : exhibitionRepository.findByArtworksId(id)) {

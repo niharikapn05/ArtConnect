@@ -4,6 +4,7 @@ import { mediaUrl, request, useApi } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { Avatar, Countdown, PageState, SaleBadge, Stars } from "../components.jsx";
 import { formatDate, formatDateTime, formatPrice } from "../format.js";
+import { PaymentCancelled, usePayment } from "../payment.jsx";
 
 export default function ArtworkPage() {
   const { id } = useParams();
@@ -54,7 +55,7 @@ export default function ArtworkPage() {
                 )}
 
                 {artwork.saleType === "AUCTION"
-                  ? <AuctionPanel artwork={artwork} onBid={(updated) => { setArtwork(updated); reloadBids({ quiet: true }); }} />
+                  ? <AuctionPanel artwork={artwork} onBid={(updated) => { setArtwork(updated); reloadBids({ quiet: true }); }} onPaid={() => reload({ quiet: true })} />
                   : <PurchasePanel artwork={artwork} onPurchased={() => reload({ quiet: true })} />}
               </div>
             </div>
@@ -97,27 +98,55 @@ function useRequireLogin() {
   };
 }
 
+/** The signed-in user's unpaid order for this artwork, if they started checkout or won its auction. */
+function useMyUnpaidOrder(artwork, user) {
+  const orders = useApi(user && artwork.status === "RESERVED" ? "/api/me/orders" : null);
+  return orders.data?.find((order) => order.artworkId === artwork.id && order.status === "AWAITING_PAYMENT");
+}
+
+/** Runs checkout → payment → verification and reports the outcome as a status message. */
+function useCheckoutFlow(onDone) {
+  const { payForCheckout, paymentDialog } = usePayment();
+  const [message, setMessage] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run(startCheckout) {
+    setBusy(true);
+    setMessage(null);
+    let checkout = null;
+    try {
+      checkout = await startCheckout();
+      await payForCheckout(checkout);
+      setMessage({ ok: true, text: "Payment successful! The artwork is yours. The artist will arrange delivery." });
+    } catch (flowError) {
+      const text = flowError instanceof PaymentCancelled
+        ? "Payment cancelled. The artwork stays reserved for you for a short while. Pay any time from My Collection."
+        : flowError.message;
+      setMessage({ ok: false, text, reserved: Boolean(checkout) });
+    } finally {
+      setBusy(false);
+      onDone();
+    }
+  }
+
+  const feedback = message && (
+    <p className={`mt-3 mb-0 ${message.ok ? "text-success-light" : "text-danger"}`} role="status">
+      {message.text} {(message.ok || message.reserved) && <Link to="/collection">View my orders</Link>}
+    </p>
+  );
+  return { run, busy, feedback, paymentDialog };
+}
+
 function PurchasePanel({ artwork, onPurchased }) {
   const { user } = useAuth();
   const requireLogin = useRequireLogin();
-  const [message, setMessage] = useState(null);
-  const [busy, setBusy] = useState(false);
+  const myUnpaidOrder = useMyUnpaidOrder(artwork, user);
+  const { run, busy, feedback, paymentDialog } = useCheckoutFlow(onPurchased);
   const isOwner = user?.id === artwork.artistId;
 
-  async function buy() {
+  function buy() {
     if (!requireLogin()) return;
-    if (!window.confirm(`Buy "${artwork.title}" for ${formatPrice(artwork.price)}?`)) return;
-    setBusy(true);
-    setMessage(null);
-    try {
-      await request(`/api/artworks/${artwork.id}/purchase`, { method: "POST" });
-      setMessage({ ok: true, text: "It's yours! The artist will be in touch to arrange payment and delivery." });
-      onPurchased();
-    } catch (requestError) {
-      setMessage({ ok: false, text: requestError.message });
-    } finally {
-      setBusy(false);
-    }
+    run(() => request(`/api/artworks/${artwork.id}/purchase`, { method: "POST" }));
   }
 
   return (
@@ -128,25 +157,29 @@ function PurchasePanel({ artwork, onPurchased }) {
       </div>
       {isOwner ? (
         <OwnerActions artwork={artwork} />
-      ) : artwork.status === "AVAILABLE" ? (
-        <button className="btn btn-primary btn-lg w-100" type="button" onClick={buy} disabled={busy}>
-          {busy ? "Processing..." : "Buy now"}
-        </button>
+      ) : artwork.status === "AVAILABLE" || myUnpaidOrder ? (
+        <>
+          <button className="btn btn-primary btn-lg w-100" type="button" onClick={buy} disabled={busy}>
+            {busy ? "Processing..." : myUnpaidOrder ? "Complete payment" : "Buy now"}
+          </button>
+          <p className="payment-methods">Secure checkout · UPI, cards, netbanking & wallets</p>
+        </>
+      ) : artwork.status === "RESERVED" ? (
+        <p className="mb-0">Reserved: another buyer is completing payment. If they don't, it will be back on sale shortly.</p>
       ) : (
         <p className="mb-0">This artwork has found a home.</p>
       )}
-      {message && (
-        <p className={`mt-3 mb-0 ${message.ok ? "text-success-light" : "text-danger"}`} role="status">
-          {message.text} {message.ok && <Link to="/collection">View my orders</Link>}
-        </p>
-      )}
+      {feedback}
+      {paymentDialog}
     </div>
   );
 }
 
-function AuctionPanel({ artwork, onBid }) {
+function AuctionPanel({ artwork, onBid, onPaid }) {
   const { user } = useAuth();
   const requireLogin = useRequireLogin();
+  const myUnpaidOrder = useMyUnpaidOrder(artwork, user);
+  const checkoutFlow = useCheckoutFlow(onPaid);
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -187,8 +220,26 @@ function AuctionPanel({ artwork, onBid }) {
           ? <>Ends in <Countdown endsAt={artwork.auctionEndsAt} /> ({formatDateTime(artwork.auctionEndsAt)})</>
           : artwork.status === "SOLD"
             ? <>Won by {artwork.highestBidderName} for {formatPrice(artwork.currentBid)}</>
-            : <>Auction ended {formatDateTime(artwork.auctionEndsAt)}. Results are being settled.</>}
+            : artwork.status === "RESERVED"
+              ? <>Won by {artwork.highestBidderName} for {formatPrice(artwork.currentBid)}. Awaiting payment.</>
+              : <>Auction ended {formatDateTime(artwork.auctionEndsAt)}. Results are being settled.</>}
       </p>
+
+      {myUnpaidOrder && (
+        <>
+          <p className="text-success-light">🎉 You won this auction! Complete your payment to claim it.</p>
+          <button
+            className="btn btn-primary btn-lg w-100"
+            type="button"
+            disabled={checkoutFlow.busy}
+            onClick={() => checkoutFlow.run(() => request(`/api/orders/${myUnpaidOrder.id}/checkout`, { method: "POST" }))}
+          >
+            {checkoutFlow.busy ? "Processing..." : `Pay ${formatPrice(myUnpaidOrder.price)}`}
+          </button>
+        </>
+      )}
+      {checkoutFlow.feedback}
+      {checkoutFlow.paymentDialog}
 
       {isOwner ? (
         <OwnerActions artwork={artwork} />
@@ -224,7 +275,7 @@ function OwnerActions({ artwork }) {
   return (
     <div>
       <p className="mb-2">This is your artwork.</p>
-      {artwork.status !== "SOLD" && <Link to={`/studio/artworks/${artwork.id}/edit`} className="btn btn-outline-light btn-sm">Edit details</Link>}
+      {artwork.status === "AVAILABLE" && <Link to={`/studio/artworks/${artwork.id}/edit`} className="btn btn-outline-dark btn-sm">Edit details</Link>}
     </div>
   );
 }

@@ -39,3 +39,4 @@ spring-boot-devtools.properties
 
 ### Local secrets ###
 .env
+frontend/.env.local

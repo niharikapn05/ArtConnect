@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { assetUrl } from "./api.js";
 import { RequireAuth } from "./auth.jsx";
 import { Footer, Header } from "./components.jsx";
@@ -14,13 +15,14 @@ import { ArtworkFormPage, StudioPage } from "./pages/StudioPages.jsx";
 
 function SiteLayout({ children }) {
   const { pathname } = useLocation();
-  const backgroundVideo = pathname === "/" ? "bg1.mp4" : "bg2.mp4";
+
+  // Start each new page at the top, as a normal site would
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   return (
     <>
-      <video key={backgroundVideo} autoPlay muted loop playsInline id="bgVideo" aria-hidden="true">
-        <source src={assetUrl(`/videos/${backgroundVideo}`)} type="video/mp4" />
-      </video>
       <Header />
       <main>{children}</main>
       <Footer />
@@ -30,8 +32,12 @@ function SiteLayout({ children }) {
 
 function AuthenticationPage({ children }) {
   return (
-    <div className="auth-page" style={{ backgroundImage: `url("${assetUrl("/images/bg.jpg")}")` }}>
-      {children}
+    <div className="auth-page">
+      <aside className="auth-art" style={{ backgroundImage: `url("${assetUrl("/images/samples/water-lilies.jpg")}")` }}>
+        <Link className="brand brand-light" to="/">ArtConnect</Link>
+        <p>Discover original art, support independent artists and bid on pieces you love.</p>
+      </aside>
+      <div className="auth-content">{children}</div>
     </div>
   );
 }

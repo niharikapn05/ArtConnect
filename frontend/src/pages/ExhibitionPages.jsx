@@ -45,7 +45,7 @@ export function ExhibitionsPage() {
             type="button"
             role="tab"
             aria-selected={status === value}
-            className={`btn ${status === value ? "btn-primary" : "btn-outline-light"}`}
+            className={`btn ${status === value ? "btn-primary" : "btn-outline-dark"}`}
             onClick={() => setParams(value === "ONGOING" ? {} : { status: value })}
           >
             {STATUS_LABELS[value] ?? "All"}
@@ -93,7 +93,7 @@ export function ExhibitionPage() {
               <p className="exhibition-description">{exhibition.description}</p>
               {canEdit && (
                 <div className="d-flex gap-2">
-                  <Link to={`/exhibitions/${exhibition.id}/edit`} className="btn btn-outline-light btn-sm">Edit</Link>
+                  <Link to={`/exhibitions/${exhibition.id}/edit`} className="btn btn-outline-dark btn-sm">Edit</Link>
                   <button type="button" className="btn btn-danger btn-sm" onClick={remove}>Delete</button>
                 </div>
               )}

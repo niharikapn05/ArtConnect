@@ -1,6 +1,7 @@
 package com.example.ArtConnect.config;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -18,12 +19,19 @@ import com.example.ArtConnect.security.CurrentUserArgumentResolver;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    private final String frontendOrigin;
+    private final String[] frontendOrigins;
     private final CurrentUserArgumentResolver currentUserArgumentResolver;
 
-    public WebConfig(@Value("${app.frontend.origin:http://localhost:5173}") String frontendOrigin,
+    /**
+     * app.frontend.origin is a comma-separated list of allowed browser origins. Patterns are
+     * allowed, e.g. "http://localhost:[*]" for any local port, or "https://*.example.com".
+     */
+    public WebConfig(@Value("${app.frontend.origin:http://localhost:[*],http://127.0.0.1:[*]}") String frontendOrigins,
                      CurrentUserArgumentResolver currentUserArgumentResolver) {
-        this.frontendOrigin = frontendOrigin;
+        this.frontendOrigins = Arrays.stream(frontendOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toArray(String[]::new);
         this.currentUserArgumentResolver = currentUserArgumentResolver;
     }
 
@@ -31,7 +39,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(frontendOrigin)
+                .allowedOriginPatterns(frontendOrigins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*");
     }

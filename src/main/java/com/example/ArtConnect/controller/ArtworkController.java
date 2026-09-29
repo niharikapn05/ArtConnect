@@ -24,7 +24,7 @@ import com.example.ArtConnect.dto.ArtworkDtos.ArtworkSearch;
 import com.example.ArtConnect.dto.ArtworkDtos.PageResponse;
 import com.example.ArtConnect.dto.MarketDtos.BidRequest;
 import com.example.ArtConnect.dto.MarketDtos.BidResponse;
-import com.example.ArtConnect.dto.MarketDtos.OrderResponse;
+import com.example.ArtConnect.dto.MarketDtos.CheckoutResponse;
 import com.example.ArtConnect.dto.MarketDtos.ReviewRequest;
 import com.example.ArtConnect.dto.MarketDtos.ReviewResponse;
 import com.example.ArtConnect.model.Categories;
@@ -32,7 +32,7 @@ import com.example.ArtConnect.model.User;
 import com.example.ArtConnect.security.CurrentUser;
 import com.example.ArtConnect.service.ArtworkService;
 import com.example.ArtConnect.service.AuctionService;
-import com.example.ArtConnect.service.OrderService;
+import com.example.ArtConnect.service.PaymentService;
 import com.example.ArtConnect.service.ReviewService;
 
 import jakarta.validation.Valid;
@@ -43,14 +43,14 @@ public class ArtworkController {
 
     private final ArtworkService artworkService;
     private final AuctionService auctionService;
-    private final OrderService orderService;
+    private final PaymentService paymentService;
     private final ReviewService reviewService;
 
     public ArtworkController(ArtworkService artworkService, AuctionService auctionService,
-                             OrderService orderService, ReviewService reviewService) {
+                             PaymentService paymentService, ReviewService reviewService) {
         this.artworkService = artworkService;
         this.auctionService = auctionService;
-        this.orderService = orderService;
+        this.paymentService = paymentService;
         this.reviewService = reviewService;
     }
 
@@ -92,8 +92,8 @@ public class ArtworkController {
 
     @PostMapping("/artworks/{id}/purchase")
     @ResponseStatus(HttpStatus.CREATED)
-    public OrderResponse purchase(@CurrentUser User user, @PathVariable Long id) {
-        return orderService.purchase(user, id);
+    public CheckoutResponse purchase(@CurrentUser User user, @PathVariable Long id) {
+        return paymentService.purchase(user, id);
     }
 
     @GetMapping("/artworks/{id}/bids")

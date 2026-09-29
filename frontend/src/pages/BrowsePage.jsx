@@ -35,8 +35,8 @@ export default function BrowsePage({ auctionsOnly = false }) {
 
   return (
     <section className="container page-section">
-      <h2 className="text-center mb-2">{auctionsOnly ? "Live Auctions" : "Gallery"}</h2>
-      <p className="text-center lead-muted mb-4">
+      <h1 className="page-title">{auctionsOnly ? "Live auctions" : category || (q ? `Results for “${q}”` : "Original art for sale")}</h1>
+      <p className="page-intro">
         {auctionsOnly
           ? "Place a bid before the clock runs out. Late bids extend the auction by two minutes."
           : "Browse original works by category, price and availability."}
@@ -73,9 +73,9 @@ export default function BrowsePage({ auctionsOnly = false }) {
       </form>
 
       <div className="filter-buttons" aria-label="Filter by category">
-        <button type="button" className={`btn ${category === "" ? "btn-primary" : "btn-outline-light"}`} onClick={() => update({ category: "" })}>All</button>
+        <button type="button" className={`btn ${category === "" ? "btn-primary" : "btn-outline-dark"}`} onClick={() => update({ category: "" })}>All</button>
         {(categories.data ?? []).map((name) => (
-          <button key={name} type="button" className={`btn ${category === name ? "btn-primary" : "btn-outline-light"}`} onClick={() => update({ category: name })}>{name}</button>
+          <button key={name} type="button" className={`btn ${category === name ? "btn-primary" : "btn-outline-dark"}`} onClick={() => update({ category: name })}>{name}</button>
         ))}
       </div>
 
