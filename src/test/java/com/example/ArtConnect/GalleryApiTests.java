@@ -195,8 +195,8 @@ class GalleryApiTests {
         String otherBuyer = register("COLLECTOR");
         long id = createArtwork(artist, "One of a kind", "FIXED", null);
 
-        mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), artist)).andExpect(status().isBadRequest());
-        JsonNode checkout = body(mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), buyer))
+        mvc.perform(buy(artist, id)).andExpect(status().isBadRequest());
+        JsonNode checkout = body(mvc.perform(buy(buyer, id))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.provider").value("mock"))
                 .andExpect(jsonPath("$.amount").value(150000)) // paise
@@ -207,10 +207,10 @@ class GalleryApiTests {
 
         // Reserved while the buyer pays; others are turned away, the buyer can resume
         mvc.perform(get("/api/artworks/" + id)).andExpect(jsonPath("$.status").value("RESERVED"));
-        mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), otherBuyer))
+        mvc.perform(buy(otherBuyer, id))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Another buyer is completing payment for this artwork. Please check back soon."));
-        mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), buyer))
+        mvc.perform(buy(buyer, id))
                 .andExpect(jsonPath("$.orderId").value(orderId))
                 .andExpect(jsonPath("$.providerOrderId").value(providerOrderId));
         mvc.perform(authed(get("/api/me/orders"), buyer)).andExpect(jsonPath("$[0].status").value("AWAITING_PAYMENT"));
@@ -229,16 +229,72 @@ class GalleryApiTests {
         // Reporting the same payment twice (browser + webhook) is harmless
         mvc.perform(pay(buyer, orderId, providerOrderId, "mock_pay_1")).andExpect(jsonPath("$.status").value("PAID"));
         mvc.perform(get("/api/artworks/" + id)).andExpect(jsonPath("$.status").value("SOLD"));
-        mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), otherBuyer))
+        mvc.perform(buy(otherBuyer, id))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Sorry, this artwork has already been sold"));
 
         mvc.perform(authed(get("/api/me/sales"), artist)).andExpect(jsonPath("$[0].id").value(orderId));
         mvc.perform(authed(post("/api/orders/" + orderId + "/cancel"), buyer)).andExpect(status().isConflict());
-        mvc.perform(authed(post("/api/orders/" + orderId + "/checkout"), buyer)).andExpect(status().isConflict());
+        mvc.perform(payOrder(buyer, orderId)).andExpect(status().isConflict());
         mvc.perform(authed(post("/api/orders/" + orderId + "/complete"), buyer)).andExpect(status().isForbidden());
         mvc.perform(authed(post("/api/orders/" + orderId + "/complete"), artist))
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
+    }
+
+    @Test
+    void paymentIssuesInvoiceAndSendsItByEmailAndSms() throws Exception {
+        String artist = register("ARTIST");
+        String buyer = register("COLLECTOR");
+        String stranger = register("COLLECTOR");
+        long id = createArtwork(artist, "Invoice <Test> Piece", "FIXED", null);
+
+        // Contact details are required and validated
+        mvc.perform(authed(postJson("/api/artworks/" + id + "/purchase", Map.of("email", "not-an-email", "phone", "98765 43210")), buyer))
+                .andExpect(status().isBadRequest());
+        mvc.perform(authed(postJson("/api/artworks/" + id + "/purchase", Map.of("email", "a@b.com", "phone", "12345")), buyer))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Phone must be a valid 10-digit Indian mobile number"));
+
+        JsonNode checkout = body(mvc.perform(buy(buyer, id))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("buyer@example.com"))
+                .andExpect(jsonPath("$.phone").value("+919876543210")));
+        long orderId = checkout.get("orderId").asLong();
+        mvc.perform(authed(get("/api/orders/" + orderId + "/invoice"), buyer)).andExpect(status().isConflict());
+
+        mvc.perform(pay(buyer, orderId, checkout.get("providerOrderId").asText(), "mock_pay_invoice"))
+                .andExpect(jsonPath("$.status").value("PAID"))
+                .andExpect(jsonPath("$.paymentMethod").value("UPI"))
+                .andExpect(jsonPath("$.invoiceNumber").value(org.hamcrest.Matchers.matchesPattern("INV-\\d{4}-\\d{6}")));
+
+        JsonNode invoice = awaitInvoiceNotifications(buyer, orderId, 2);
+        String invoiceNumber = invoice.get("invoiceNumber").asText();
+        assertThat(invoice.get("order").get("billingEmail").asText()).isEqualTo("buyer@example.com");
+        assertThat(invoice.get("notifications")).hasSize(2);
+        assertThat(invoice.get("notifications").findValuesAsText("status")).containsOnly("SIMULATED");
+        assertThat(invoice.get("notifications").findValuesAsText("recipient"))
+                .containsExactlyInAnyOrder("buyer@example.com", "+919876543210");
+
+        // The demo outbox received an HTML invoice email (with escaped content) and an SMS
+        java.nio.file.Path outbox = java.nio.file.Path.of("target/test-outbox");
+        try (var files = java.nio.file.Files.list(outbox)) {
+            String email = files.filter(f -> f.getFileName().toString().contains("buyer@example.com"))
+                    .map(f -> { try { return java.nio.file.Files.readString(f); } catch (java.io.IOException e) { throw new RuntimeException(e); } })
+                    .filter(html -> html.contains(invoiceNumber))
+                    .findFirst().orElseThrow();
+            assertThat(email).contains("Invoice &lt;Test&gt; Piece").doesNotContain("Invoice <Test> Piece").contains("UPI");
+        }
+        // The text is a short order confirmation; the full invoice is in the email
+        assertThat(java.nio.file.Files.readString(outbox.resolve("sms.log")))
+                .contains("Order #" + orderId + " confirmed").contains("+919876543210");
+
+        // Buyer and seller can see the invoice; others can't. Only the buyer can resend it.
+        mvc.perform(authed(get("/api/orders/" + orderId + "/invoice"), artist)).andExpect(status().isOk());
+        mvc.perform(authed(get("/api/orders/" + orderId + "/invoice"), stranger)).andExpect(status().isForbidden());
+        mvc.perform(authed(post("/api/orders/" + orderId + "/invoice/send"), artist)).andExpect(status().isForbidden());
+        mvc.perform(authed(post("/api/orders/" + orderId + "/invoice/send"), buyer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.notifications.length()").value(4));
     }
 
     @Test
@@ -249,14 +305,14 @@ class GalleryApiTests {
         String thirdBuyer = register("COLLECTOR");
         long id = createArtwork(artist, "Held piece", "FIXED", null);
 
-        long cancelled = body(mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), buyer))).get("orderId").asLong();
+        long cancelled = body(mvc.perform(buy(buyer, id))).get("orderId").asLong();
         mvc.perform(authed(post("/api/orders/" + cancelled + "/cancel"), slowBuyer)).andExpect(status().isForbidden());
         mvc.perform(authed(post("/api/orders/" + cancelled + "/cancel"), buyer))
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
         mvc.perform(get("/api/artworks/" + id)).andExpect(jsonPath("$.status").value("AVAILABLE"));
 
         // The slow buyer's reservation lapses and the artwork goes back on sale
-        JsonNode slow = body(mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), slowBuyer)));
+        JsonNode slow = body(mvc.perform(buy(slowBuyer, id)));
         long slowOrder = slow.get("orderId").asLong();
         expireHold(slowOrder);
         paymentService.releaseExpiredHolds();
@@ -264,7 +320,7 @@ class GalleryApiTests {
         mvc.perform(authed(get("/api/me/orders"), slowBuyer)).andExpect(jsonPath("$[0].status").value("CANCELLED"));
 
         // Someone else reserves it, so the slow buyer's late payment can't be honoured
-        body(mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), thirdBuyer)).andExpect(status().isCreated()));
+        body(mvc.perform(buy(thirdBuyer, id)).andExpect(status().isCreated()));
         mvc.perform(pay(slowBuyer, slowOrder, slow.get("providerOrderId").asText(), "mock_pay_late"))
                 .andExpect(status().isConflict());
         mvc.perform(get("/api/artworks/" + id)).andExpect(jsonPath("$.status").value("RESERVED"));
@@ -275,7 +331,7 @@ class GalleryApiTests {
         String artist = register("ARTIST");
         String buyer = register("COLLECTOR");
         long id = createArtwork(artist, "Patient piece", "FIXED", null);
-        JsonNode checkout = body(mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), buyer)));
+        JsonNode checkout = body(mvc.perform(buy(buyer, id)));
         long orderId = checkout.get("orderId").asLong();
         expireHold(orderId);
         paymentService.releaseExpiredHolds();
@@ -304,7 +360,7 @@ class GalleryApiTests {
         mvc.perform(get("/api/artworks/" + id))
                 .andExpect(jsonPath("$.auctionLive").value(true))
                 .andExpect(jsonPath("$.minimumBid").value(1500.0));
-        mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), alice)).andExpect(status().isBadRequest());
+        mvc.perform(buy(alice, id)).andExpect(status().isBadRequest());
         mvc.perform(bid(artist, id, 2000)).andExpect(status().isBadRequest());
         mvc.perform(bid(alice, id, 1499)).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Your bid must be at least 1500.00"));
@@ -343,8 +399,8 @@ class GalleryApiTests {
                 .andExpect(jsonPath("$[0].myHighestBid").value(1575.0));
 
         long orderId = order.get("id").asLong();
-        mvc.perform(authed(post("/api/orders/" + orderId + "/checkout"), bob)).andExpect(status().isForbidden());
-        JsonNode checkout = body(mvc.perform(authed(post("/api/orders/" + orderId + "/checkout"), alice))
+        mvc.perform(payOrder(bob, orderId)).andExpect(status().isForbidden());
+        JsonNode checkout = body(mvc.perform(payOrder(alice, orderId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.amount").value(200000)));
         mvc.perform(pay(alice, orderId, checkout.get("providerOrderId").asText(), "mock_pay_auction"))
@@ -361,7 +417,7 @@ class GalleryApiTests {
         mvc.perform(get("/api/artworks/" + id))
                 .andExpect(jsonPath("$.saleType").value("FIXED"))
                 .andExpect(jsonPath("$.status").value("AVAILABLE"));
-        mvc.perform(authed(post("/api/artworks/" + id + "/purchase"), register("COLLECTOR")))
+        mvc.perform(buy(register("COLLECTOR"), id))
                 .andExpect(status().isCreated());
     }
 
@@ -484,10 +540,33 @@ class GalleryApiTests {
                 "endDate", end.toString(), "artworkIds", artworkIds)));
     }
 
+    private static final Map<String, String> CONTACT = Map.of("email", "Buyer@Example.com", "phone", "98765 43210");
+
+    /** Starts buying a fixed-price artwork with valid billing contact details. */
+    private MockHttpServletRequestBuilder buy(String token, long artworkId) throws Exception {
+        return authed(postJson("/api/artworks/" + artworkId + "/purchase", CONTACT), token);
+    }
+
+    /** Opens payment for an existing unpaid order (e.g. a won auction). */
+    private MockHttpServletRequestBuilder payOrder(String token, long orderId) throws Exception {
+        return authed(postJson("/api/orders/" + orderId + "/checkout", CONTACT), token);
+    }
+
     private MockHttpServletRequestBuilder pay(String token, long orderId, String providerOrderId, String paymentId)
             throws Exception {
         return authed(postJson("/api/orders/" + orderId + "/payment", Map.of(
-                "providerOrderId", providerOrderId, "paymentId", paymentId, "signature", "demo")), token);
+                "providerOrderId", providerOrderId, "paymentId", paymentId, "signature", "demo", "method", "UPI")), token);
+    }
+
+    /** Invoices are sent in the background; wait until both the email and the SMS have been recorded. */
+    private JsonNode awaitInvoiceNotifications(String token, long orderId, int expected) throws Exception {
+        JsonNode invoice = null;
+        for (int attempt = 0; attempt < 50; attempt++) {
+            invoice = body(mvc.perform(authed(get("/api/orders/" + orderId + "/invoice"), token)).andExpect(status().isOk()));
+            if (invoice.get("notifications").size() >= expected) return invoice;
+            Thread.sleep(100);
+        }
+        return invoice;
     }
 
     private void expireHold(long orderId) {

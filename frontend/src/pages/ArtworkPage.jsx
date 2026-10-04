@@ -4,7 +4,7 @@ import { mediaUrl, request, useApi } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { Avatar, Countdown, PageState, SaleBadge, Stars } from "../components.jsx";
 import { formatDate, formatDateTime, formatPrice } from "../format.js";
-import { PaymentCancelled, usePayment } from "../payment.jsx";
+import { useCheckout } from "../payment.jsx";
 
 export default function ArtworkPage() {
   const { id } = useParams();
@@ -104,37 +104,36 @@ function useMyUnpaidOrder(artwork, user) {
   return orders.data?.find((order) => order.artworkId === artwork.id && order.status === "AWAITING_PAYMENT");
 }
 
-/** Runs checkout → payment → verification and reports the outcome as a status message. */
+/** Opens the checkout dialog (contact details → payment → verification) and reports the outcome. */
 function useCheckoutFlow(onDone) {
-  const { payForCheckout, paymentDialog } = usePayment();
+  const { openCheckout, checkoutDialog } = useCheckout();
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  async function run(startCheckout) {
+  /** item: what's being bought ({ title, amount, imageUrl, subtitle }); startCheckout(contact) calls the API. */
+  async function run(item, startCheckout) {
     setBusy(true);
     setMessage(null);
-    let checkout = null;
-    try {
-      checkout = await startCheckout();
-      await payForCheckout(checkout);
-      setMessage({ ok: true, text: "Payment successful! The artwork is yours. The artist will arrange delivery." });
-    } catch (flowError) {
-      const text = flowError instanceof PaymentCancelled
-        ? "Payment cancelled. The artwork stays reserved for you for a short while. Pay any time from My Collection."
-        : flowError.message;
-      setMessage({ ok: false, text, reserved: Boolean(checkout) });
-    } finally {
-      setBusy(false);
-      onDone();
+    const result = await openCheckout({ ...item, startCheckout });
+    if (result.status === "paid") {
+      setMessage({ ok: true, orderId: result.order.id,
+        text: `Payment successful! Invoice ${result.order.invoiceNumber} has been sent to ${result.order.billingEmail}.` });
+    } else if (result.reserved) {
+      setMessage({ ok: false, reserved: true,
+        text: "Payment not completed. The artwork stays reserved for you for a short while. Pay any time from My Collection." });
     }
+    setBusy(false);
+    onDone();
   }
 
   const feedback = message && (
     <p className={`mt-3 mb-0 ${message.ok ? "text-success-light" : "text-danger"}`} role="status">
-      {message.text} {(message.ok || message.reserved) && <Link to="/collection">View my orders</Link>}
+      {message.text}{" "}
+      {message.ok ? <Link to={`/orders/${message.orderId}/invoice`}>View invoice</Link>
+        : message.reserved && <Link to="/collection">View my orders</Link>}
     </p>
   );
-  return { run, busy, feedback, paymentDialog };
+  return { run, busy, feedback, paymentDialog: checkoutDialog };
 }
 
 function PurchasePanel({ artwork, onPurchased }) {
@@ -146,7 +145,10 @@ function PurchasePanel({ artwork, onPurchased }) {
 
   function buy() {
     if (!requireLogin()) return;
-    run(() => request(`/api/artworks/${artwork.id}/purchase`, { method: "POST" }));
+    run(
+      { title: artwork.title, subtitle: artwork.artistName, amount: artwork.price, imageUrl: artwork.imageUrl },
+      (contact) => request(`/api/artworks/${artwork.id}/purchase`, { method: "POST", json: contact }),
+    );
   }
 
   return (
@@ -232,7 +234,10 @@ function AuctionPanel({ artwork, onBid, onPaid }) {
             className="btn btn-primary btn-lg w-100"
             type="button"
             disabled={checkoutFlow.busy}
-            onClick={() => checkoutFlow.run(() => request(`/api/orders/${myUnpaidOrder.id}/checkout`, { method: "POST" }))}
+            onClick={() => checkoutFlow.run(
+              { title: artwork.title, subtitle: "Won at auction", amount: myUnpaidOrder.price, imageUrl: artwork.imageUrl },
+              (contact) => request(`/api/orders/${myUnpaidOrder.id}/checkout`, { method: "POST", json: contact }),
+            )}
           >
             {checkoutFlow.busy ? "Processing..." : `Pay ${formatPrice(myUnpaidOrder.price)}`}
           </button>

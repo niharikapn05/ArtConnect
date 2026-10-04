@@ -24,6 +24,7 @@ import com.example.ArtConnect.dto.ArtworkDtos.ArtworkSearch;
 import com.example.ArtConnect.dto.ArtworkDtos.PageResponse;
 import com.example.ArtConnect.dto.MarketDtos.BidRequest;
 import com.example.ArtConnect.dto.MarketDtos.BidResponse;
+import com.example.ArtConnect.dto.MarketDtos.CheckoutRequest;
 import com.example.ArtConnect.dto.MarketDtos.CheckoutResponse;
 import com.example.ArtConnect.dto.MarketDtos.ReviewRequest;
 import com.example.ArtConnect.dto.MarketDtos.ReviewResponse;
@@ -92,8 +93,9 @@ public class ArtworkController {
 
     @PostMapping("/artworks/{id}/purchase")
     @ResponseStatus(HttpStatus.CREATED)
-    public CheckoutResponse purchase(@CurrentUser User user, @PathVariable Long id) {
-        return paymentService.purchase(user, id);
+    public CheckoutResponse purchase(@CurrentUser User user, @PathVariable Long id,
+                                     @Valid @RequestBody CheckoutRequest contact) {
+        return paymentService.purchase(user, id, contact);
     }
 
     @GetMapping("/artworks/{id}/bids")

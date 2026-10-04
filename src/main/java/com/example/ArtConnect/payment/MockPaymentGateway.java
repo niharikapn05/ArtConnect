@@ -48,4 +48,9 @@ public class MockPaymentGateway implements PaymentGateway {
     public Optional<PaidOrder> parsePaymentWebhook(String payload, String signature) {
         return Optional.empty();
     }
+
+    @Override
+    public String paymentMethod(String paymentId, String reportedMethod) {
+        return reportedMethod == null ? "UPI" : reportedMethod;
+    }
 }

@@ -23,5 +23,11 @@ public interface PaymentGateway {
     /** Verifies a server-to-server webhook and extracts the paid order, if the event reports a payment. */
     Optional<PaidOrder> parsePaymentWebhook(String payload, String signature);
 
+    /**
+     * How the payment was made: UPI, CARD, NETBANKING or WALLET (ONLINE if unknown). Real gateways look this up
+     * themselves; reportedMethod is what the checkout page said and is only trusted by the demo gateway.
+     */
+    String paymentMethod(String paymentId, String reportedMethod);
+
     record PaidOrder(String providerOrderId, String paymentId) {}
 }

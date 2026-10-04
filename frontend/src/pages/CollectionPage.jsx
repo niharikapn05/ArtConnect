@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { mediaUrl, request, useApi } from "../api.js";
 import { Countdown, EmptyState, PageState } from "../components.jsx";
 import { formatDate, formatPrice } from "../format.js";
-import { PaymentCancelled, usePayment } from "../payment.jsx";
+import { paymentMethodLabel, useCheckout } from "../payment.jsx";
 import { OrderStatus } from "./StudioPages.jsx";
 
 /** A collector's purchases and auction bids. */
@@ -15,23 +15,26 @@ export default function CollectionPage() {
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
   const [payingId, setPayingId] = useState(null);
-  const { payForCheckout, paymentDialog } = usePayment();
+  const { openCheckout, checkoutDialog } = useCheckout();
 
   async function pay(order) {
     setActionError("");
     setNotice("");
     setPayingId(order.id);
-    try {
-      const checkout = await request(`/api/orders/${order.id}/checkout`, { method: "POST" });
-      const paid = await payForCheckout(checkout);
-      orders.setData((current) => current.map((item) => (item.id === paid.id ? paid : item)));
-      setNotice(`Payment received for "${paid.artworkTitle}". The artist will arrange delivery.`);
-    } catch (payError) {
-      if (!(payError instanceof PaymentCancelled)) setActionError(payError.message);
+    const result = await openCheckout({
+      title: order.artworkTitle,
+      subtitle: order.source === "AUCTION" ? "Won at auction" : `by ${order.artistName}`,
+      amount: order.price,
+      imageUrl: order.imageUrl,
+      startCheckout: (contact) => request(`/api/orders/${order.id}/checkout`, { method: "POST", json: contact }),
+    });
+    if (result.status === "paid") {
+      orders.setData((current) => current.map((item) => (item.id === result.order.id ? result.order : item)));
+      setNotice(`Payment received for "${result.order.artworkTitle}". Invoice ${result.order.invoiceNumber} has been sent to ${result.order.billingEmail}.`);
+    } else {
       orders.reload({ quiet: true });
-    } finally {
-      setPayingId(null);
     }
+    setPayingId(null);
   }
 
   async function cancel(order) {
@@ -55,7 +58,7 @@ export default function CollectionPage() {
       </div>
       {actionError && <p className="text-danger" role="alert">{actionError}</p>}
       {notice && <p className="text-success-light" role="status">{notice}</p>}
-      {paymentDialog}
+      {checkoutDialog}
 
       {tab === "orders" && (
         <PageState loading={orders.loading} error={orders.error}>
@@ -71,10 +74,17 @@ export default function CollectionPage() {
                     {order.status === "AWAITING_PAYMENT" && order.holdExpiresAt && (
                       <p>Reserved for you for <Countdown endsAt={order.holdExpiresAt} /></p>
                     )}
-                    {order.paymentId && <p>Payment ref. <code>{order.paymentId}</code></p>}
+                    {order.invoiceNumber && (
+                      <p>Invoice {order.invoiceNumber} · {paymentMethodLabel(order.paymentMethod)} · ref. <code>{order.paymentId}</code></p>
+                    )}
                   </div>
                   <div className="order-actions">
                     <OrderStatus status={order.status} />
+                    {order.invoiceNumber && (
+                      <Link to={`/orders/${order.id}/invoice`} className="btn btn-outline-dark btn-sm">
+                        <i className="fas fa-file-invoice" aria-hidden="true" /> Invoice
+                      </Link>
+                    )}
                     {order.status === "AWAITING_PAYMENT" && (
                       <>
                         <button type="button" className="btn btn-primary btn-sm" disabled={payingId !== null} onClick={() => pay(order)}>

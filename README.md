@@ -111,9 +111,18 @@ Purchases go through [Razorpay](https://razorpay.com):
 Order statuses: **Awaiting payment → Paid → Delivered** (the artist marks it delivered), or **Cancelled** before payment.
 Auction winners get an order awaiting payment and pay from *My Collection*.
 
-### Demo mode (default)
+### Demo mode (default): "ArtConnect Pay"
 
-With `PAYMENT_PROVIDER=mock` (the default) no gateway is contacted and a clearly labelled demo payment screen stands in for Razorpay, so the whole flow works locally without keys. **Never run production in demo mode.**
+With `PAYMENT_PROVIDER=mock` (the default) no gateway is contacted. Instead a built-in **demo gateway that looks like an Indian UPI checkout** handles the payment, so the whole flow works locally without any account or keys. No real money moves, and it's clearly labelled DEMO. **Never run production in demo mode.**
+
+Checkout first asks for the buyer's **email and mobile number** (the invoice goes there), then offers:
+
+| Method | How to simulate it |
+|--------|--------------------|
+| **UPI QR** | A QR code with a countdown and app chips (Google Pay, PhonePe, Paytm, BHIM). Click *Simulate scan & pay*. The QR is deliberately not a real `upi://` link, so scanning it can never charge anyone. |
+| **UPI ID** | Enter any UPI ID, e.g. `success@upi`, and approve the "collect request" (auto-approves after a few seconds). `failure@upi` gets declined. |
+| **Cards** | `4111 1111 1111 1111` succeeds, `4000 0000 0000 0002` is declined; any future expiry and CVV; OTP `123456`. |
+| **Netbanking / Wallets** | Pick a bank or wallet, then approve or reject on the simulated bank page. |
 
 ### Using Razorpay
 
@@ -134,6 +143,37 @@ Paid orders can't be cancelled in the app. Refunds are issued from the Razorpay 
 
 ---
 
+## 🧾 Invoices by email and SMS
+
+When a payment is verified, the order gets an invoice number (`INV-2026-000042`) and the invoice is sent to the email and mobile number entered at checkout, in the background, so it never slows down or fails the payment. Buyers and sellers can open the invoice in the app (*My Collection* / *Studio → Sales* → **Invoice**), print it or save it as PDF, see where it was delivered, and resend it.
+
+Out of the box nothing is really sent: each email is saved as an `.html` file in the `outbox/` folder (open it in a browser) and each SMS is appended to `outbox/sms.log`. Delivery shows as *Demo outbox* on the invoice page. To send for real, set these in `.env` and restart the backend:
+
+**Email (any SMTP server).** Free options: Gmail with an [app password](https://support.google.com/accounts/answer/185833), [Brevo](https://www.brevo.com) (300 emails/day free), or a [Mailtrap](https://mailtrap.io) test inbox that catches every email without delivering it:
+
+    EMAIL_PROVIDER=smtp
+    SMTP_HOST=smtp.gmail.com
+    SMTP_PORT=587
+    SMTP_USERNAME=you@gmail.com
+    SMTP_PASSWORD=your-16-character-app-password
+    EMAIL_FROM=ArtConnect <you@gmail.com>
+
+**SMS ([Twilio](https://www.twilio.com)).** The text is a short order confirmation ("ArtConnect: Order #41 confirmed. Payment of Rs.2,500.00 received; your invoice has been emailed to you."); the full invoice goes by email.
+
+*Free trial account:* Twilio trial accounts [can't send custom text](https://www.twilio.com/docs/usage/trials/try-out-sms), only Twilio's predefined templates, and only to numbers verified in the Twilio console. They must also send from the **trial number Twilio assigned to your verified recipient** (shown in the Twilio console), otherwise Twilio returns error 572003:
+
+    SMS_PROVIDER=twilio
+    TWILIO_ACCOUNT_SID=ACxxxxxxxx
+    TWILIO_AUTH_TOKEN=xxxxxxxx
+    TWILIO_FROM_NUMBER=+1xxxxxxxxxx   (your assigned trial number)
+    TWILIO_TRIAL_TEMPLATE=sms_order_confirmation
+
+*Upgraded account:* remove `TWILIO_TRIAL_TEMPLATE` and set `TWILIO_FROM_NUMBER=+1xxxxxxxxxx` to send ArtConnect's own text to any number.
+
+Set `PUBLIC_URL` to your website's address so the "view invoice" links in emails and texts point to it (default `http://localhost:5173`).
+
+---
+
 ## 🔌 REST API
 
 | Method | Path | Description |
@@ -145,9 +185,10 @@ Paid orders can't be cancelled in the app. Refunds are issued from the Razorpay 
 | GET | `/api/categories` | Artwork categories |
 | GET | `/api/artworks?q=&category=&tag=&saleType=&status=&artistId=&minPrice=&maxPrice=&liveAuctions=&sort=&page=&size=` | Browse |
 | GET / POST / PUT / DELETE | `/api/artworks`, `/api/artworks/{id}` | Artwork CRUD (upload is multipart) |
-| POST | `/api/artworks/{id}/purchase` | Start buying a fixed-price artwork: reserves it and returns checkout details |
+| POST | `/api/artworks/{id}/purchase` | Start buying a fixed-price artwork (body: `email`, `phone`): reserves it and returns checkout details |
 | POST | `/api/orders/{id}/checkout` | Get checkout details for an unpaid order (e.g. a won auction) |
-| POST | `/api/orders/{id}/payment` | Confirm a payment; the server verifies the gateway signature |
+| POST | `/api/orders/{id}/payment` | Confirm a payment; the server verifies the gateway signature and issues the invoice |
+| GET / POST | `/api/orders/{id}/invoice`, `/api/orders/{id}/invoice/send` | View an invoice (buyer, seller, admin) / resend it (buyer) |
 | POST | `/api/payments/razorpay/webhook` | Razorpay server-to-server payment notifications |
 | GET / POST | `/api/artworks/{id}/bids` | Bid history / place a bid |
 | GET / POST | `/api/artworks/{id}/reviews`, DELETE `/api/reviews/{id}` | Reviews |

@@ -2,6 +2,7 @@ package com.example.ArtConnect.model;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneOffset;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -76,6 +77,20 @@ public class Order {
     @Column(name = "hold_expires_at")
     private Instant holdExpiresAt;
 
+    // Billing contact entered at checkout; the invoice is sent here
+    @Column(name = "billing_email", length = 254)
+    private String billingEmail;
+
+    @Column(name = "billing_phone", length = 20)
+    private String billingPhone;
+
+    /** UPI, CARD, NETBANKING, WALLET, or ONLINE when the gateway doesn't say. */
+    @Column(name = "payment_method", length = 20)
+    private String paymentMethod;
+
+    @Column(name = "invoice_number", length = 30, unique = true)
+    private String invoiceNumber;
+
     protected Order() {}
 
     public Order(Artwork artwork, User buyer, OrderSource source, BigDecimal price, Instant holdExpiresAt) {
@@ -103,10 +118,19 @@ public class Order {
         this.updatedAt = Instant.now();
     }
 
-    public void markPaid(String paymentId) {
+    public void setBillingContact(String email, String phone) {
+        this.billingEmail = email;
+        this.billingPhone = phone;
+        this.updatedAt = Instant.now();
+    }
+
+    /** Records the verified payment and issues the invoice number, e.g. INV-2026-000042. */
+    public void markPaid(String paymentId, String paymentMethod) {
         this.paymentId = paymentId;
+        this.paymentMethod = paymentMethod;
         this.paidAt = Instant.now();
         this.holdExpiresAt = null;
+        this.invoiceNumber = "INV-%d-%06d".formatted(paidAt.atZone(ZoneOffset.UTC).getYear(), id);
         changeStatus(OrderStatus.PAID);
     }
 
@@ -127,4 +151,8 @@ public class Order {
     public String getPaymentId() { return paymentId; }
     public Instant getPaidAt() { return paidAt; }
     public Instant getHoldExpiresAt() { return holdExpiresAt; }
+    public String getBillingEmail() { return billingEmail; }
+    public String getBillingPhone() { return billingPhone; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public String getInvoiceNumber() { return invoiceNumber; }
 }

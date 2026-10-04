@@ -57,6 +57,12 @@
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
+		<!-- Invoice emails over SMTP -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
 		<!-- BCrypt password hashing (no full Spring Security needed) -->
 		<dependency>
 			<groupId>org.springframework.security</groupId>

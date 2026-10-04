@@ -805,7 +805,7 @@ legend.form-label { font-size: 0.9rem; }
 }
 @media (max-width: 760px) { .footer-grid { grid-template-columns: 1fr 1fr; } .footer-brand { grid-column: 1 / -1; } }
 
-/* ---------- Payments ---------- */
+/* ---------- Checkout dialog ---------- */
 .payment-backdrop {
     position: fixed;
     inset: 0;
@@ -815,24 +815,217 @@ legend.form-label { font-size: 0.9rem; }
     justify-content: center;
     padding: 1rem;
     background: rgba(0, 0, 0, 0.55);
+    overflow-y: auto;
 }
-.payment-dialog {
-    width: min(420px, 100%);
+.checkout-dialog {
+    position: relative;
+    width: min(440px, 100%);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
     padding: 1.75rem;
     background: #fff;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
-.payment-dialog h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-.payment-demo-banner {
-    margin: -0.5rem 0 1rem;
-    padding: 0.45rem 0.75rem;
-    background: var(--warning-bg);
-    color: #664d03;
-    font-size: 0.85rem;
-    font-weight: 600;
-    text-align: center;
+.checkout-dialog.wide { width: min(780px, 100%); padding: 0; }
+.checkout-dialog h2 { font-size: 1.5rem; margin-bottom: 1rem; }
+.checkout-close {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.7rem;
+    z-index: 1;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 1.1rem;
 }
-.payment-item { margin: 0; font-weight: 600; }
-.payment-amount { margin: 0.25rem 0 0.75rem; font-family: var(--serif); font-size: 2.2rem; }
-.payment-hold { font-size: 0.9rem; color: var(--ink-soft); }
-.payment-note { font-size: 0.8rem; color: var(--muted); }
+.checkout-close:hover { color: var(--ink); }
+.checkout-dialog.wide .checkout-close { color: #fff; }
+.checkout-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.9rem;
+    align-items: center;
+    padding: 0.9rem;
+    margin-bottom: 1rem;
+    background: var(--surface);
+}
+.checkout-item img { width: 56px; height: 56px; object-fit: contain; background: #fff; }
+.checkout-item strong { display: block; font-size: 0.95rem; }
+.checkout-item span { color: var(--muted); font-size: 0.85rem; }
+.checkout-item .checkout-amount { color: var(--ink); font-weight: 600; font-size: 1rem; }
+.checkout-note { color: var(--muted); font-size: 0.85rem; }
+.checkout-secure { margin: 0.8rem 0 0; text-align: center; color: var(--muted); font-size: 0.8rem; }
+.checkout-status { padding: 1.5rem 0.5rem; text-align: center; }
+.checkout-status h2 { margin: 1rem 0 0.5rem; }
+.checkout-status .spinner-border { width: 2.5rem; height: 2.5rem; color: var(--ink); }
+.checkout-tick, .checkout-cross {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 1.5rem;
+}
+.checkout-tick { background: var(--success); }
+.checkout-cross { background: var(--danger); }
+.checkout-paid-amount { font-family: var(--serif); font-size: 2rem; margin-bottom: 1rem; }
+.checkout-receipt {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.35rem 1rem;
+    margin: 0 0 1rem;
+    padding: 1rem;
+    background: var(--surface);
+    text-align: left;
+    font-size: 0.9rem;
+}
+.checkout-receipt dt { color: var(--muted); font-weight: 400; }
+.checkout-receipt dd { margin: 0; word-break: break-all; }
+
+/* ---------- Demo payment gateway (UPI-style) ---------- */
+.gateway { display: flex; flex-direction: column; }
+.gateway-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.1rem 3rem 1.1rem 1.5rem;
+    background: linear-gradient(120deg, #1f2a5a, #3b2a6b);
+    color: #fff;
+}
+.gateway-brand { font-size: 1.15rem; letter-spacing: 0.01em; }
+.gateway-demo {
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+    background: #ffc857;
+    color: #1a1a1a;
+    font-size: 0.7rem;
+    font-weight: 700;
+    vertical-align: middle;
+}
+.gateway-merchant { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.gateway-merchant span { font-size: 0.8rem; opacity: 0.8; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gateway-merchant strong { font-size: 1.5rem; }
+.gateway-banner { margin: 0; padding: 0.55rem 1.5rem; background: var(--warning-bg); color: #664d03; font-size: 0.82rem; }
+.gateway-body { display: grid; grid-template-columns: 220px 1fr; min-height: 380px; }
+.gateway-tabs { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--surface); }
+.gateway-tabs button {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.95rem 1rem;
+    border: 0;
+    border-left: 3px solid transparent;
+    background: transparent;
+    text-align: left;
+}
+.gateway-tabs button i { width: 1.2rem; color: var(--ink-soft); }
+.gateway-tabs button strong { display: block; font-size: 0.9rem; }
+.gateway-tabs button small { display: block; color: var(--muted); font-size: 0.75rem; }
+.gateway-tabs button.active { border-left-color: #3b2a6b; background: #fff; }
+.gateway-panel { padding: 1.4rem 1.5rem; }
+.gateway-panel h3 { font-family: var(--sans); font-size: 1rem; margin-bottom: 0.9rem; }
+.gateway-hint { margin: 0.8rem 0 0; color: var(--muted); font-size: 0.78rem; }
+.gateway-footer { padding: 0.7rem 1.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.78rem; }
+.upi-panel { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1.25rem; align-items: start; }
+.upi-qr { text-align: center; }
+.upi-qr img, .upi-qr-placeholder { width: 180px; height: 180px; border: 1px solid var(--line); padding: 6px; }
+.upi-qr p { margin: 0.5rem 0 0.4rem; font-size: 0.85rem; color: var(--ink-soft); }
+.upi-apps { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3rem; }
+.upi-apps span { padding: 0.15rem 0.5rem; border: 1px solid var(--line); border-radius: 999px; font-size: 0.72rem; }
+.upi-divider { display: flex; align-items: center; height: 100%; color: var(--muted); font-size: 0.8rem; }
+.upi-divider span { padding: 0.3rem; background: #fff; }
+.upi-collect, .bank-redirect, .card-otp { text-align: center; padding-top: 1rem; }
+.upi-phone { font-size: 2.5rem; color: #3b2a6b; margin-bottom: 0.75rem; }
+.upi-timer { color: var(--accent); font-weight: 600; }
+.otp-input { max-width: 200px; margin: 0 auto; text-align: center; font-size: 1.4rem; letter-spacing: 0.5rem; }
+.choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.choice-grid label {
+    position: relative;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid #cfcac3;
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+.choice-grid label.active { border: 2px solid #3b2a6b; padding: calc(0.7rem - 1px) calc(0.8rem - 1px); }
+.choice-grid input { position: absolute; opacity: 0; }
+.choice-grid label:focus-within { outline: 2px solid var(--ink); outline-offset: 1px; }
+.bank-redirect-name { display: inline-block; padding: 0.3rem 0.8rem; background: var(--surface); font-weight: 600; }
+@media (max-width: 720px) {
+    .gateway-body { grid-template-columns: 1fr; }
+    .gateway-tabs { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    .gateway-tabs button { flex-shrink: 0; border-left: 0; border-bottom: 3px solid transparent; }
+    .gateway-tabs button small { display: none; }
+    .gateway-tabs button.active { border-bottom-color: #3b2a6b; }
+    .upi-panel { grid-template-columns: 1fr; }
+    .upi-divider { justify-content: center; }
+}
+
+/* ---------- Invoice ---------- */
+.invoice-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+.invoice-toolbar a { text-decoration: none; }
+.invoice { max-width: 860px; padding: 2.5rem; border: 1px solid var(--line); background: #fff; }
+.invoice-header { display: flex; justify-content: space-between; gap: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--line); }
+.invoice-header p { margin: 0.2rem 0 0; color: var(--muted); }
+.invoice-meta { text-align: right; }
+.invoice-meta h1 { margin: 0; font-size: 1.9rem; }
+.invoice-meta p { color: var(--ink-soft); }
+.invoice-paid {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 0.15rem 0.6rem;
+    border: 2px solid var(--success);
+    color: var(--success);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+.invoice-parties { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; padding: 1.5rem 0; }
+.invoice-parties h2, .invoice-deliveries h2 {
+    font-family: var(--sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.invoice-parties p { margin: 0; line-height: 1.6; }
+.invoice-items { width: 100%; border-collapse: collapse; }
+.invoice-items th { padding: 0.7rem; background: var(--surface); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.invoice-items td { padding: 0.9rem 0.7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.invoice-items td span { color: var(--muted); font-size: 0.85rem; }
+.invoice-items tfoot td { border-bottom: 0; font-weight: 600; font-size: 1.05rem; }
+.invoice-payment { margin-top: 1.5rem; color: var(--ink-soft); }
+.invoice-footnote { margin: 1.5rem 0 0; color: var(--muted); font-size: 0.8rem; }
+.invoice-deliveries { max-width: 860px; margin-top: 2rem; }
+.invoice-deliveries ul { list-style: none; margin: 0; padding: 0; }
+.invoice-deliveries li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.4rem 0.8rem;
+    align-items: center;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--line);
+}
+.invoice-deliveries li small { color: var(--muted); }
+.delivery-status { padding: 0.15rem 0.55rem; font-size: 0.75rem; font-weight: 600; }
+.delivery-status.sent { background: #e3f3ea; color: var(--success); }
+.delivery-status.simulated { background: var(--warning-bg); color: #664d03; }
+.delivery-status.failed { background: #fbe4e2; color: var(--danger); }
+@media (max-width: 700px) {
+    .invoice { padding: 1.25rem; }
+    .invoice-header { flex-direction: column; }
+    .invoice-meta { text-align: left; }
+    .invoice-parties { grid-template-columns: 1fr; }
+}
+@media print {
+    .site-header, .site-footer, .no-print { display: none !important; }
+    .page-section { padding: 0; }
+    .invoice { border: 0; max-width: none; padding: 0; }
+}

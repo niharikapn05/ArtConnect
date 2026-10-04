@@ -107,7 +107,10 @@ export function StudioPage() {
                       <td>{order.source === "AUCTION" ? "Auction" : "Purchase"}</td>
                       <td>{formatDate(order.createdAt)}</td>
                       <td><OrderStatus status={order.status} /></td>
-                      <td className="text-end">
+                      <td className="text-end text-nowrap">
+                        {order.invoiceNumber && (
+                          <Link to={`/orders/${order.id}/invoice`} className="btn btn-outline-dark btn-sm me-1">Invoice</Link>
+                        )}
                         {order.status === "PAID" && (
                           <button type="button" className="btn btn-success btn-sm" onClick={() => completeSale(order)}>Mark delivered</button>
                         )}

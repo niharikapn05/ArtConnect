@@ -138,6 +138,25 @@ public class RazorpayGateway implements PaymentGateway {
         }
     }
 
+    /** Asks Razorpay how the payment was made (upi, card, netbanking, wallet...). */
+    @Override
+    public String paymentMethod(String paymentId, String reportedMethod) {
+        try {
+            JsonNode payment = restClient.get().uri("/v1/payments/{id}", paymentId).retrieve().body(JsonNode.class);
+            String method = payment == null ? "" : payment.path("method").asText("");
+            return switch (method) {
+                case "upi" -> "UPI";
+                case "card" -> "CARD";
+                case "netbanking" -> "NETBANKING";
+                case "wallet" -> "WALLET";
+                default -> "ONLINE";
+            };
+        } catch (RestClientException e) {
+            log.warn("Could not look up the method of Razorpay payment {}", paymentId, e);
+            return "ONLINE";
+        }
+    }
+
     static String hmacSha256Hex(String data, String secret) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
