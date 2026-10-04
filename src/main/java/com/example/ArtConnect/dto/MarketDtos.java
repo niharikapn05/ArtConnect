@@ -30,23 +30,20 @@ public final class MarketDtos {
                                 OrderSource source, OrderStatus status, Long buyerId, String buyerName,
                                 Long artistId, String artistName, Instant createdAt, Instant updatedAt,
                                 String paymentId, Instant paidAt, Instant holdExpiresAt,
-                                String paymentMethod, String invoiceNumber, String billingEmail, String billingPhone) {
+                                String paymentMethod, String invoiceNumber, String billingEmail) {
         public static OrderResponse from(Order o) {
             return new OrderResponse(o.getId(), o.getArtwork() == null ? null : o.getArtwork().getId(),
                     o.getArtworkTitle(), o.getImageUrl(), o.getPrice(), o.getSource(), o.getStatus(),
                     o.getBuyer().getId(), o.getBuyer().getDisplayName(),
                     o.getArtist().getId(), o.getArtist().getDisplayName(), o.getCreatedAt(), o.getUpdatedAt(),
                     o.getPaymentId(), o.getPaidAt(), o.getHoldExpiresAt(),
-                    o.getPaymentMethod(), o.getInvoiceNumber(), o.getBillingEmail(), o.getBillingPhone());
+                    o.getPaymentMethod(), o.getInvoiceNumber(), o.getBillingEmail());
         }
     }
 
-    /** Billing contact entered at checkout; the invoice is emailed and texted here. */
+    /** Billing email entered at checkout; the invoice is emailed here. */
     public record CheckoutRequest(
-            @NotBlank @Email(message = "must be a valid email address") @Size(max = 254) String email,
-            // Loose shape check; PaymentService.normalizeIndianMobile enforces a real 10-digit Indian number
-            @NotBlank @Pattern(regexp = "^\\+?[0-9][0-9\\s-]{8,15}$",
-                    message = "must be a valid 10-digit Indian mobile number") String phone) {}
+            @NotBlank @Email(message = "must be a valid email address") @Size(max = 254) String email) {}
 
     /**
      * Everything the browser needs to open the payment gateway's checkout.
@@ -54,7 +51,7 @@ public final class MarketDtos {
      */
     public record CheckoutResponse(Long orderId, String provider, String keyId, String providerOrderId,
                                    long amount, String currency, String artworkTitle, String buyerName,
-                                   Instant holdExpiresAt, String email, String phone) {}
+                                   Instant holdExpiresAt, String email) {}
 
     /** What the gateway's checkout returns to the browser after a successful payment. */
     public record PaymentConfirmation(@NotBlank @Size(max = 64) String providerOrderId,

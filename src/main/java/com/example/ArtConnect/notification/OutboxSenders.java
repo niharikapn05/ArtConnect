@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -17,7 +16,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Demo "delivery" for local development: instead of sending, invoices are written to the outbox folder
- * (emails as .html files you can open in a browser, texts appended to sms.log) and logged.
+ * (emails as .html files you can open in a browser) and logged.
  */
 public final class OutboxSenders {
     private static final Logger log = LoggerFactory.getLogger(OutboxSenders.class);
@@ -45,28 +44,6 @@ public final class OutboxSenders {
             Path file = outbox.resolve(name);
             Files.writeString(file, html, StandardCharsets.UTF_8);
             log.info("[DEMO EMAIL] To: {} | Subject: {} | Saved to {}", to, subject, file);
-        }
-    }
-
-    @Component
-    @ConditionalOnProperty(name = "app.notifications.sms.provider", havingValue = "outbox", matchIfMissing = true)
-    public static class OutboxSmsSender implements SmsSender {
-        private final Path outbox;
-
-        public OutboxSmsSender(@Value("${app.notifications.outbox-dir:outbox}") String outboxDir) {
-            this.outbox = Path.of(outboxDir).toAbsolutePath();
-        }
-
-        @Override public String provider() { return "outbox"; }
-        @Override public boolean simulated() { return true; }
-
-        @Override
-        public void send(String to, String text) throws IOException {
-            Files.createDirectories(outbox);
-            String entry = "%s  To: %s%n%s%n%n".formatted(Instant.now(), to, text);
-            Files.writeString(outbox.resolve("sms.log"), entry, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            log.info("[DEMO SMS] To: {} | {}", to, text);
         }
     }
 }

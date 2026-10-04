@@ -16,8 +16,8 @@ import com.example.ArtConnect.repository.NotificationRepository;
 import com.example.ArtConnect.repository.OrderRepository;
 
 /**
- * Emails and texts the invoice once a payment is committed. Runs in the background so a slow or failing
- * email/SMS provider never affects the payment itself; every attempt is recorded as a Notification.
+ * Emails the invoice once a payment is committed. Runs in the background so a slow or failing email
+ * provider never affects the payment itself; every attempt is recorded as a Notification.
  */
 @Component
 public class InvoiceNotifier {
@@ -25,17 +25,15 @@ public class InvoiceNotifier {
 
     private final InvoiceService invoiceService;
     private final EmailSender emailSender;
-    private final SmsSender smsSender;
     private final NotificationRepository notificationRepository;
     private final OrderRepository orderRepository;
     private final TransactionTemplate transactionTemplate;
 
-    public InvoiceNotifier(InvoiceService invoiceService, EmailSender emailSender, SmsSender smsSender,
+    public InvoiceNotifier(InvoiceService invoiceService, EmailSender emailSender,
                            NotificationRepository notificationRepository, OrderRepository orderRepository,
                            TransactionTemplate transactionTemplate) {
         this.invoiceService = invoiceService;
         this.emailSender = emailSender;
-        this.smsSender = smsSender;
         this.notificationRepository = notificationRepository;
         this.orderRepository = orderRepository;
         this.transactionTemplate = transactionTemplate;
@@ -47,7 +45,7 @@ public class InvoiceNotifier {
         sendInvoice(event.orderId());
     }
 
-    /** Sends the invoice to the billing email and phone saved at checkout. */
+    /** Emails the invoice to the billing email saved at checkout. */
     public void sendInvoice(Long orderId) {
         InvoiceMessage message;
         try {
@@ -56,39 +54,24 @@ public class InvoiceNotifier {
             log.error("Could not prepare the invoice for order {}", orderId, e);
             return;
         }
-        if (message.email() != null) {
-            Outcome outcome = attempt(() -> emailSender.send(message.email(), message.subject(), message.html(), message.text()),
-                    emailSender.simulated(), "email", orderId);
-            record(orderId, Channel.EMAIL, message.email(), message.subject(), outcome, emailSender.provider());
-        }
-        if (message.phone() != null) {
-            Outcome outcome = attempt(() -> smsSender.send(message.phone(), message.sms()),
-                    smsSender.simulated(), "SMS", orderId);
-            record(orderId, Channel.SMS, message.phone(), null, outcome, smsSender.provider());
-        }
-    }
+        if (message.email() == null) return;
 
-    private static Outcome attempt(Delivery delivery, boolean simulated, String what, Long orderId) {
+        Status status;
+        String error = null;
         try {
-            delivery.run();
-            return new Outcome(simulated ? Status.SIMULATED : Status.SENT, null);
+            emailSender.send(message.email(), message.subject(), message.html(), message.text());
+            status = emailSender.simulated() ? Status.SIMULATED : Status.SENT;
         } catch (Exception e) {
-            log.warn("Invoice {} for order {} failed: {}", what, orderId, e.getMessage());
-            return new Outcome(Status.FAILED, e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+            log.warn("Invoice email for order {} failed: {}", orderId, e.getMessage());
+            status = Status.FAILED;
+            error = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
         }
-    }
 
-    private void record(Long orderId, Channel channel, String recipient, String subject, Outcome outcome, String provider) {
-        String trimmedSubject = subject == null || subject.length() <= 200 ? subject : subject.substring(0, 200);
+        String subject = message.subject().length() <= 200 ? message.subject() : message.subject().substring(0, 200);
+        Status finalStatus = status;
+        String finalError = error;
         transactionTemplate.executeWithoutResult(tx -> notificationRepository.save(new Notification(
-                orderRepository.getReferenceById(orderId), channel, recipient, trimmedSubject,
-                outcome.status(), provider, outcome.error())));
-    }
-
-    private record Outcome(Status status, String error) {}
-
-    @FunctionalInterface
-    private interface Delivery {
-        void run() throws Exception;
+                orderRepository.getReferenceById(orderId), Channel.EMAIL, message.email(), subject,
+                finalStatus, emailSender.provider(), finalError)));
     }
 }

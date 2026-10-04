@@ -60,14 +60,13 @@ public class InvoiceService {
     public InvoiceMessage messageFor(Long orderId) {
         Order order = paidOrder(orderId);
         InvoiceResponse invoice = toInvoice(order);
-        return new InvoiceMessage(order.getId(), order.getBillingEmail(), order.getBillingPhone(),
+        return new InvoiceMessage(order.getId(), order.getBillingEmail(),
                 "Your ArtConnect invoice " + invoice.invoiceNumber() + " for \"" + order.getArtworkTitle() + "\"",
-                renderHtml(invoice), renderText(invoice), renderSms(invoice));
+                renderHtml(invoice), renderText(invoice));
     }
 
-    /** Rendered invoice plus its recipients. */
-    public record InvoiceMessage(Long orderId, String email, String phone, String subject,
-                                 String html, String text, String sms) {}
+    /** Rendered invoice email plus its recipient. */
+    public record InvoiceMessage(Long orderId, String email, String subject, String html, String text) {}
 
     private Order paidOrder(Long orderId) {
         Order order = orderRepository.findById(orderId).orElseThrow(() -> ApiException.notFound("Order not found"));
@@ -89,20 +88,13 @@ public class InvoiceService {
         return publicUrl + "/orders/" + orderId + "/invoice";
     }
 
-    /** A short order confirmation; the full invoice goes by email. Plain ASCII ("Rs.") keeps it to one SMS. */
-    String renderSms(InvoiceResponse invoice) {
-        OrderResponse order = invoice.order();
-        return "ArtConnect: Order #" + order.id() + " confirmed. Payment of Rs." + plainAmount(order.price())
-                + " received; your invoice has been emailed to you.";
-    }
-
     String renderText(InvoiceResponse invoice) {
         OrderResponse order = invoice.order();
         return """
                 ArtConnect - Invoice %s
                 Date: %s
 
-                Billed to: %s (%s, %s)
+                Billed to: %s (%s)
                 Sold by: %s
 
                 %s (%s)    %s
@@ -113,7 +105,7 @@ public class InvoiceService {
 
                 Thank you for supporting independent art!
                 """.formatted(invoice.invoiceNumber(), date(invoice.issuedAt()),
-                invoice.buyerName(), order.billingEmail(), order.billingPhone(), invoice.sellerName(),
+                invoice.buyerName(), order.billingEmail(), invoice.sellerName(),
                 order.artworkTitle(), sourceLabel(order.source()), money(order.price()), money(order.price()),
                 methodLabel(order.paymentMethod()), order.paymentId(), invoiceUrl(order.id()));
     }
@@ -143,18 +135,18 @@ public class InvoiceService {
                     <table role="presentation" width="100%%" style="margin-top:24px;font-size:14px;line-height:1.5">
                       <tr>
                         <td valign="top" width="50%%"><div style="color:#6f6f6f;font-size:12px;text-transform:uppercase;letter-spacing:1px">Billed to</div>
-                          %4$s<br>%5$s<br>%6$s</td>
-                        <td valign="top" width="50%%"><div style="color:#6f6f6f;font-size:12px;text-transform:uppercase;letter-spacing:1px">Sold by</div>%7$s</td>
+                          %4$s<br>%5$s</td>
+                        <td valign="top" width="50%%"><div style="color:#6f6f6f;font-size:12px;text-transform:uppercase;letter-spacing:1px">Sold by</div>%6$s</td>
                       </tr>
                     </table>
                     <table role="presentation" width="100%%" cellpadding="10" cellspacing="0" style="margin-top:24px;font-size:14px;border-collapse:collapse">
                       <tr style="background:#f6f4f0;text-align:left"><th align="left">Item</th><th align="center">Qty</th><th align="right">Amount</th></tr>
-                      <tr style="border-bottom:1px solid #e6e3de"><td><strong>%8$s</strong><br><span style="color:#6f6f6f">%9$s</span></td><td align="center">1</td><td align="right">%3$s</td></tr>
+                      <tr style="border-bottom:1px solid #e6e3de"><td><strong>%7$s</strong><br><span style="color:#6f6f6f">%8$s</span></td><td align="center">1</td><td align="right">%3$s</td></tr>
                       <tr><td colspan="2" align="right"><strong>Total</strong></td><td align="right"><strong>%3$s</strong></td></tr>
                     </table>
-                    <p style="margin-top:24px;font-size:14px;line-height:1.6">Paid by <strong>%10$s</strong><br>
-                      Payment reference: <code>%11$s</code></p>
-                    <p style="margin:28px 0 8px"><a href="%12$s" style="display:inline-block;padding:12px 22px;background:#1a1a1a;color:#ffffff;text-decoration:none">View or print invoice</a></p>
+                    <p style="margin-top:24px;font-size:14px;line-height:1.6">Paid by <strong>%9$s</strong><br>
+                      Payment reference: <code>%10$s</code></p>
+                    <p style="margin:28px 0 8px"><a href="%11$s" style="display:inline-block;padding:12px 22px;background:#1a1a1a;color:#ffffff;text-decoration:none">View or print invoice</a></p>
                   </td></tr>
                   <tr><td style="padding:16px 32px;border-top:1px solid #e6e3de;color:#8a8a8a;font-size:12px">
                     This is a computer-generated invoice and does not need a signature.
@@ -162,7 +154,7 @@ public class InvoiceService {
                 </table>
                 </body></html>
                 """.formatted(esc(invoice.invoiceNumber()), esc(date(invoice.issuedAt())), esc(money(order.price())),
-                esc(invoice.buyerName()), esc(order.billingEmail()), esc(order.billingPhone()), seller,
+                esc(invoice.buyerName()), esc(order.billingEmail()), seller,
                 esc(order.artworkTitle()), esc(sourceLabel(order.source())), esc(methodLabel(order.paymentMethod())),
                 esc(order.paymentId()), esc(invoiceUrl(order.id())));
     }
@@ -173,12 +165,6 @@ public class InvoiceService {
         return format.format(amount);
     }
 
-    private static String plainAmount(BigDecimal amount) {
-        NumberFormat format = NumberFormat.getNumberInstance(INDIA);
-        format.setMinimumFractionDigits(2);
-        format.setMaximumFractionDigits(2);
-        return format.format(amount);
-    }
 
     private String date(Instant instant) {
         return DateTimeFormatter.ofPattern("d MMM yyyy, h:mm a", Locale.ENGLISH).withZone(zone).format(instant);

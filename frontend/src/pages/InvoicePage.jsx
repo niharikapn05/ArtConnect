@@ -4,7 +4,7 @@ import { request, useApi } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { PageState } from "../components.jsx";
 import { formatDateTime, formatPrice } from "../format.js";
-import { formatPhone, paymentMethodLabel } from "../payment.jsx";
+import { paymentMethodLabel } from "../payment.jsx";
 
 const STATUS_TEXT = {
   SENT: "Delivered to provider",
@@ -12,7 +12,7 @@ const STATUS_TEXT = {
   FAILED: "Failed",
 };
 
-/** A printable invoice for a paid order, plus where it was emailed and texted. */
+/** A printable invoice for a paid order, plus where it was emailed (older orders may also list an SMS). */
 export default function InvoicePage() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -72,7 +72,7 @@ export default function InvoicePage() {
               <div className="invoice-parties">
                 <div>
                   <h2>Billed to</h2>
-                  <p>{invoice.buyerName}<br />{invoice.order.billingEmail}<br />{formatPhone(invoice.order.billingPhone)}</p>
+                  <p>{invoice.buyerName}<br />{invoice.order.billingEmail}</p>
                 </div>
                 <div>
                   <h2>Sold by</h2>
@@ -115,7 +115,7 @@ export default function InvoicePage() {
                     <li key={index}>
                       <i className={`fas ${notification.channel === "EMAIL" ? "fa-envelope" : "fa-comment-sms"}`} aria-hidden="true" />
                       <span>
-                        {notification.channel === "EMAIL" ? "Email" : "SMS"} to <strong>{notification.channel === "SMS" ? formatPhone(notification.recipient) : notification.recipient}</strong>
+                        {notification.channel === "EMAIL" ? "Email" : "SMS"} to <strong>{notification.recipient}</strong>
                         <small> · {formatDateTime(notification.createdAt)} · via {notification.provider}</small>
                       </span>
                       <span className={`delivery-status ${notification.status.toLowerCase()}`}>{STATUS_TEXT[notification.status]}</span>

@@ -77,12 +77,9 @@ public class Order {
     @Column(name = "hold_expires_at")
     private Instant holdExpiresAt;
 
-    // Billing contact entered at checkout; the invoice is sent here
+    /** Billing email entered at checkout; the invoice is sent here. */
     @Column(name = "billing_email", length = 254)
     private String billingEmail;
-
-    @Column(name = "billing_phone", length = 20)
-    private String billingPhone;
 
     /** UPI, CARD, NETBANKING, WALLET, or ONLINE when the gateway doesn't say. */
     @Column(name = "payment_method", length = 20)
@@ -118,9 +115,8 @@ public class Order {
         this.updatedAt = Instant.now();
     }
 
-    public void setBillingContact(String email, String phone) {
+    public void setBillingEmail(String email) {
         this.billingEmail = email;
-        this.billingPhone = phone;
         this.updatedAt = Instant.now();
     }
 
@@ -152,7 +148,6 @@ public class Order {
     public Instant getPaidAt() { return paidAt; }
     public Instant getHoldExpiresAt() { return holdExpiresAt; }
     public String getBillingEmail() { return billingEmail; }
-    public String getBillingPhone() { return billingPhone; }
     public String getPaymentMethod() { return paymentMethod; }
     public String getInvoiceNumber() { return invoiceNumber; }
 }

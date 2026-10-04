@@ -115,7 +115,7 @@ Auction winners get an order awaiting payment and pay from *My Collection*.
 
 With `PAYMENT_PROVIDER=mock` (the default) no gateway is contacted. Instead a built-in **demo gateway that looks like an Indian UPI checkout** handles the payment, so the whole flow works locally without any account or keys. No real money moves, and it's clearly labelled DEMO. **Never run production in demo mode.**
 
-Checkout first asks for the buyer's **email and mobile number** (the invoice goes there), then offers:
+Checkout first asks for the buyer's **email** (the invoice is sent there), then offers:
 
 | Method | How to simulate it |
 |--------|--------------------|
@@ -143,13 +143,13 @@ Paid orders can't be cancelled in the app. Refunds are issued from the Razorpay 
 
 ---
 
-## 🧾 Invoices by email and SMS
+## 🧾 Invoices by email
 
-When a payment is verified, the order gets an invoice number (`INV-2026-000042`) and the invoice is sent to the email and mobile number entered at checkout, in the background, so it never slows down or fails the payment. Buyers and sellers can open the invoice in the app (*My Collection* / *Studio → Sales* → **Invoice**), print it or save it as PDF, see where it was delivered, and resend it.
+When a payment is verified, the order gets an invoice number (`INV-2026-000042`) and the invoice is emailed to the address entered at checkout, in the background, so it never slows down or fails the payment. Buyers and sellers can open the invoice in the app (*My Collection* / *Studio → Sales* → **Invoice**), print it or save it as PDF, see where it was delivered, and resend it.
 
-Out of the box nothing is really sent: each email is saved as an `.html` file in the `outbox/` folder (open it in a browser) and each SMS is appended to `outbox/sms.log`. Delivery shows as *Demo outbox* on the invoice page. To send for real, set these in `.env` and restart the backend:
+Out of the box nothing is really sent: each email is saved as an `.html` file in the `outbox/` folder (open it in a browser). Delivery shows as *Demo outbox* on the invoice page. To send for real, set these in `.env` and restart the backend.
 
-**Email (any SMTP server).** Free options: Gmail with an [app password](https://support.google.com/accounts/answer/185833), [Brevo](https://www.brevo.com) (300 emails/day free), or a [Mailtrap](https://mailtrap.io) test inbox that catches every email without delivering it:
+**Any SMTP server.** Free options: Gmail with an [app password](https://support.google.com/accounts/answer/185833), [Brevo](https://www.brevo.com) (300 emails/day free), or a [Mailtrap](https://mailtrap.io) test inbox that catches every email without delivering it:
 
     EMAIL_PROVIDER=smtp
     SMTP_HOST=smtp.gmail.com
@@ -158,19 +158,7 @@ Out of the box nothing is really sent: each email is saved as an `.html` file in
     SMTP_PASSWORD=your-16-character-app-password
     EMAIL_FROM=ArtConnect <you@gmail.com>
 
-**SMS ([Twilio](https://www.twilio.com)).** The text is a short order confirmation ("ArtConnect: Order #41 confirmed. Payment of Rs.2,500.00 received; your invoice has been emailed to you."); the full invoice goes by email.
-
-*Free trial account:* Twilio trial accounts [can't send custom text](https://www.twilio.com/docs/usage/trials/try-out-sms), only Twilio's predefined templates, and only to numbers verified in the Twilio console. They must also send from the **trial number Twilio assigned to your verified recipient** (shown in the Twilio console), otherwise Twilio returns error 572003:
-
-    SMS_PROVIDER=twilio
-    TWILIO_ACCOUNT_SID=ACxxxxxxxx
-    TWILIO_AUTH_TOKEN=xxxxxxxx
-    TWILIO_FROM_NUMBER=+1xxxxxxxxxx   (your assigned trial number)
-    TWILIO_TRIAL_TEMPLATE=sms_order_confirmation
-
-*Upgraded account:* remove `TWILIO_TRIAL_TEMPLATE` and set `TWILIO_FROM_NUMBER=+1xxxxxxxxxx` to send ArtConnect's own text to any number.
-
-Set `PUBLIC_URL` to your website's address so the "view invoice" links in emails and texts point to it (default `http://localhost:5173`).
+Set `PUBLIC_URL` to your website's address so the "view invoice" link in the email points to it (default `http://localhost:5173`).
 
 ---
 
@@ -185,7 +173,7 @@ Set `PUBLIC_URL` to your website's address so the "view invoice" links in emails
 | GET | `/api/categories` | Artwork categories |
 | GET | `/api/artworks?q=&category=&tag=&saleType=&status=&artistId=&minPrice=&maxPrice=&liveAuctions=&sort=&page=&size=` | Browse |
 | GET / POST / PUT / DELETE | `/api/artworks`, `/api/artworks/{id}` | Artwork CRUD (upload is multipart) |
-| POST | `/api/artworks/{id}/purchase` | Start buying a fixed-price artwork (body: `email`, `phone`): reserves it and returns checkout details |
+| POST | `/api/artworks/{id}/purchase` | Start buying a fixed-price artwork (body: `email`): reserves it and returns checkout details |
 | POST | `/api/orders/{id}/checkout` | Get checkout details for an unpaid order (e.g. a won auction) |
 | POST | `/api/orders/{id}/payment` | Confirm a payment; the server verifies the gateway signature and issues the invoice |
 | GET / POST | `/api/orders/{id}/invoice`, `/api/orders/{id}/invoice/send` | View an invoice (buyer, seller, admin) / resend it (buyer) |

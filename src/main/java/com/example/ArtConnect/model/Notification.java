@@ -14,13 +14,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-/** A record of an invoice email or SMS sent (or simulated) for an order. */
+/** A record of an invoice email sent (or simulated) for an order. */
 @Entity
 @Table(name = "notifications")
 public class Notification {
+    /** SMS is no longer sent; it remains only so older delivery records can still be read. */
     public enum Channel { EMAIL, SMS }
 
-    /** SIMULATED means the demo outbox stored it instead of a real email/SMS provider sending it. */
+    /** SIMULATED means the demo outbox stored it instead of a real email provider sending it. */
     public enum Status { SENT, SIMULATED, FAILED }
 
     @Id

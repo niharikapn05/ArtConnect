@@ -18,7 +18,7 @@ export class PaymentCancelled extends Error {
 
 /**
  * Checkout for one item. `openCheckout({ title, amount, imageUrl, subtitle, startCheckout })` opens the dialog;
- * startCheckout(contact) must call the API (purchase or order checkout) and return its checkout details.
+ * startCheckout({ email }) must call the API (purchase or order checkout) and return its checkout details.
  * Resolves with { status: "paid", order } or { status: "closed", reserved } once the dialog closes.
  * Render `checkoutDialog` somewhere in the component.
  */
@@ -40,26 +40,20 @@ export function useCheckout() {
   return { openCheckout, checkoutDialog };
 }
 
-function loadSavedContact() {
+function loadSavedEmail() {
   try {
-    return JSON.parse(localStorage.getItem(CONTACT_KEY)) ?? { email: "", phone: "" };
+    return JSON.parse(localStorage.getItem(CONTACT_KEY))?.email ?? "";
   } catch {
-    return { email: "", phone: "" };
+    return "";
   }
 }
 
-function saveContact(contact) {
+function saveEmail(email) {
   try {
-    localStorage.setItem(CONTACT_KEY, JSON.stringify(contact));
+    localStorage.setItem(CONTACT_KEY, JSON.stringify({ email }));
   } catch {
-    // Not remembering the contact details is harmless.
+    // Not remembering the email is harmless.
   }
-}
-
-/** "+919876543210" -> "+91 98765 43210" */
-export function formatPhone(phone) {
-  const match = /^\+91(\d{5})(\d{5})$/.exec(phone ?? "");
-  return match ? `+91 ${match[1]} ${match[2]}` : phone;
 }
 
 const METHOD_LABELS = { UPI: "UPI", CARD: "Card", NETBANKING: "Net banking", WALLET: "Wallet", ONLINE: "Online payment" };
@@ -70,7 +64,7 @@ export function paymentMethodLabel(method) {
 function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onClose }) {
   const { user } = useAuth();
   const [step, setStep] = useState("contact");
-  const [contact, setContact] = useState(loadSavedContact);
+  const [email, setEmail] = useState(loadSavedEmail);
   const [checkout, setCheckout] = useState(null);
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
@@ -110,9 +104,9 @@ function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onCl
     setBusy(true);
     setError("");
     try {
-      const details = { email: contact.email.trim(), phone: contact.phone.trim() };
+      const details = { email: email.trim() };
       const started = await startCheckout(details);
-      saveContact(details);
+      saveEmail(details.email);
       setCheckout(started);
       if (started.provider === "razorpay") {
         setStep("razorpay");
@@ -157,18 +151,10 @@ function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onCl
               </div>
               <span className="checkout-amount">{formatPrice(amount)}</span>
             </div>
-            <p className="checkout-note">Your invoice will be emailed and sent by SMS to these details.</p>
+            <p className="checkout-note">Your invoice will be emailed to this address.</p>
             <label className="form-label" htmlFor="checkout-email">Email</label>
             <input id="checkout-email" className="form-control mb-3" type="email" required autoComplete="email"
-              placeholder="you@example.com" value={contact.email}
-              onChange={(event) => setContact((current) => ({ ...current, email: event.target.value }))} />
-            <label className="form-label" htmlFor="checkout-phone">Mobile number</label>
-            <div className="input-group mb-3">
-              <span className="input-group-text">+91</span>
-              <input id="checkout-phone" className="form-control" type="tel" required autoComplete="tel-national"
-                inputMode="numeric" placeholder="98765 43210" pattern="[0-9+\s\-]{10,16}" value={contact.phone}
-                onChange={(event) => setContact((current) => ({ ...current, phone: event.target.value }))} />
-            </div>
+              placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />
             {error && <p className="text-danger" role="alert">{error}</p>}
             <button type="submit" className="btn btn-primary btn-lg w-100" disabled={busy}>
               {busy ? "Please wait..." : `Continue to pay ${formatPrice(amount)}`}
@@ -213,8 +199,7 @@ function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onCl
               <dt>Reference</dt><dd><code>{order.paymentId}</code></dd>
             </dl>
             <p className="checkout-note">
-              <i className="fas fa-envelope" aria-hidden="true" /> Invoice is on its way to <strong>{order.billingEmail}</strong>
-              {" "}and by SMS to <strong>{formatPhone(order.billingPhone)}</strong>.
+              <i className="fas fa-envelope" aria-hidden="true" /> Invoice is on its way to <strong>{order.billingEmail}</strong>.
             </p>
             <div className="d-flex gap-2">
               <Link to={`/orders/${order.id}/invoice`} className="btn btn-primary flex-grow-1" onClick={close}>View invoice</Link>
@@ -285,7 +270,7 @@ async function openRazorpay(checkout) {
       currency: checkout.currency,
       name: "ArtConnect",
       description: checkout.artworkTitle,
-      prefill: { name: checkout.buyerName, email: checkout.email, contact: checkout.phone },
+      prefill: { name: checkout.buyerName, email: checkout.email },
       theme: { color: "#1a1a1a" },
       ...(secondsLeft !== null && { timeout: secondsLeft }),
       handler: (response) => resolve({
@@ -402,7 +387,7 @@ function DemoGateway({ checkout, onPaid, onFailed }) {
           ) : tab === "UPI" ? (
             <UpiPanel checkout={checkout} amount={amount} screen={screen} setScreen={setScreen} succeed={succeed} fail={fail} />
           ) : tab === "CARD" ? (
-            <CardPanel phone={checkout.phone} amount={amount} screen={screen} setScreen={setScreen} succeed={succeed} fail={fail} />
+            <CardPanel amount={amount} screen={screen} setScreen={setScreen} succeed={succeed} fail={fail} />
           ) : tab === "NETBANKING" ? (
             <ChoicePanel kind="NETBANKING" options={BANKS} amount={amount} screen={screen} setScreen={setScreen} succeed={succeed} fail={fail} />
           ) : (
@@ -411,7 +396,7 @@ function DemoGateway({ checkout, onPaid, onFailed }) {
         </section>
       </div>
       <footer className="gateway-footer">
-        <i className="fas fa-shield-halved" aria-hidden="true" /> Secured demo checkout · Invoice to {checkout.email} &amp; {formatPhone(checkout.phone)}
+        <i className="fas fa-shield-halved" aria-hidden="true" /> Secured demo checkout · Invoice to {checkout.email}
       </footer>
     </div>
   );
@@ -490,7 +475,7 @@ function UpiPanel({ checkout, amount, screen, setScreen, succeed, fail }) {
   );
 }
 
-function CardPanel({ phone, amount, screen, setScreen, succeed, fail }) {
+function CardPanel({ amount, screen, setScreen, succeed, fail }) {
   const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: "" });
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
@@ -531,7 +516,7 @@ function CardPanel({ phone, amount, screen, setScreen, succeed, fail }) {
     return (
       <form className="card-otp" onSubmit={submitOtp}>
         <h3>Verify it&rsquo;s you</h3>
-        <p>Enter the one-time password sent to <strong>{formatPhone(phone).replace(/\d(?=\d{4})/g, "•")}</strong> to pay {amount}.</p>
+        <p>Enter the one-time password sent to the mobile number registered with your card to pay {amount}.</p>
         <input className="form-control otp-input" inputMode="numeric" maxLength={6} autoFocus value={otp} aria-label="One-time password"
           onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} />
         {error && <p className="text-danger small mt-1 mb-0" role="alert">{error}</p>}

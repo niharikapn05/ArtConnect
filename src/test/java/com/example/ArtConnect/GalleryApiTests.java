@@ -242,23 +242,21 @@ class GalleryApiTests {
     }
 
     @Test
-    void paymentIssuesInvoiceAndSendsItByEmailAndSms() throws Exception {
+    void paymentIssuesInvoiceAndEmailsIt() throws Exception {
         String artist = register("ARTIST");
         String buyer = register("COLLECTOR");
         String stranger = register("COLLECTOR");
         long id = createArtwork(artist, "Invoice <Test> Piece", "FIXED", null);
 
-        // Contact details are required and validated
-        mvc.perform(authed(postJson("/api/artworks/" + id + "/purchase", Map.of("email", "not-an-email", "phone", "98765 43210")), buyer))
-                .andExpect(status().isBadRequest());
-        mvc.perform(authed(postJson("/api/artworks/" + id + "/purchase", Map.of("email", "a@b.com", "phone", "12345")), buyer))
+        // The billing email is required and validated
+        mvc.perform(authed(postJson("/api/artworks/" + id + "/purchase", Map.of("email", "not-an-email")), buyer))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Phone must be a valid 10-digit Indian mobile number"));
+                .andExpect(jsonPath("$.message").value("Email must be a valid email address"));
 
         JsonNode checkout = body(mvc.perform(buy(buyer, id))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value("buyer@example.com"))
-                .andExpect(jsonPath("$.phone").value("+919876543210")));
+                .andExpect(jsonPath("$.phone").doesNotExist()));
         long orderId = checkout.get("orderId").asLong();
         mvc.perform(authed(get("/api/orders/" + orderId + "/invoice"), buyer)).andExpect(status().isConflict());
 
@@ -267,15 +265,16 @@ class GalleryApiTests {
                 .andExpect(jsonPath("$.paymentMethod").value("UPI"))
                 .andExpect(jsonPath("$.invoiceNumber").value(org.hamcrest.Matchers.matchesPattern("INV-\\d{4}-\\d{6}")));
 
-        JsonNode invoice = awaitInvoiceNotifications(buyer, orderId, 2);
+        JsonNode invoice = awaitInvoiceNotifications(buyer, orderId, 1);
         String invoiceNumber = invoice.get("invoiceNumber").asText();
         assertThat(invoice.get("order").get("billingEmail").asText()).isEqualTo("buyer@example.com");
-        assertThat(invoice.get("notifications")).hasSize(2);
-        assertThat(invoice.get("notifications").findValuesAsText("status")).containsOnly("SIMULATED");
-        assertThat(invoice.get("notifications").findValuesAsText("recipient"))
-                .containsExactlyInAnyOrder("buyer@example.com", "+919876543210");
+        assertThat(invoice.get("order").has("billingPhone")).isFalse();
+        assertThat(invoice.get("notifications")).hasSize(1);
+        assertThat(invoice.get("notifications").get(0).get("channel").asText()).isEqualTo("EMAIL");
+        assertThat(invoice.get("notifications").get(0).get("status").asText()).isEqualTo("SIMULATED");
+        assertThat(invoice.get("notifications").get(0).get("recipient").asText()).isEqualTo("buyer@example.com");
 
-        // The demo outbox received an HTML invoice email (with escaped content) and an SMS
+        // The demo outbox received the HTML invoice email (with escaped content)
         java.nio.file.Path outbox = java.nio.file.Path.of("target/test-outbox");
         try (var files = java.nio.file.Files.list(outbox)) {
             String email = files.filter(f -> f.getFileName().toString().contains("buyer@example.com"))
@@ -284,9 +283,7 @@ class GalleryApiTests {
                     .findFirst().orElseThrow();
             assertThat(email).contains("Invoice &lt;Test&gt; Piece").doesNotContain("Invoice <Test> Piece").contains("UPI");
         }
-        // The text is a short order confirmation; the full invoice is in the email
-        assertThat(java.nio.file.Files.readString(outbox.resolve("sms.log")))
-                .contains("Order #" + orderId + " confirmed").contains("+919876543210");
+        assertThat(outbox.resolve("sms.log")).doesNotExist();
 
         // Buyer and seller can see the invoice; others can't. Only the buyer can resend it.
         mvc.perform(authed(get("/api/orders/" + orderId + "/invoice"), artist)).andExpect(status().isOk());
@@ -294,7 +291,7 @@ class GalleryApiTests {
         mvc.perform(authed(post("/api/orders/" + orderId + "/invoice/send"), artist)).andExpect(status().isForbidden());
         mvc.perform(authed(post("/api/orders/" + orderId + "/invoice/send"), buyer))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.notifications.length()").value(4));
+                .andExpect(jsonPath("$.notifications.length()").value(2));
     }
 
     @Test
@@ -540,9 +537,9 @@ class GalleryApiTests {
                 "endDate", end.toString(), "artworkIds", artworkIds)));
     }
 
-    private static final Map<String, String> CONTACT = Map.of("email", "Buyer@Example.com", "phone", "98765 43210");
+    private static final Map<String, String> CONTACT = Map.of("email", "Buyer@Example.com");
 
-    /** Starts buying a fixed-price artwork with valid billing contact details. */
+    /** Starts buying a fixed-price artwork with a valid billing email. */
     private MockHttpServletRequestBuilder buy(String token, long artworkId) throws Exception {
         return authed(postJson("/api/artworks/" + artworkId + "/purchase", CONTACT), token);
     }
@@ -558,7 +555,7 @@ class GalleryApiTests {
                 "providerOrderId", providerOrderId, "paymentId", paymentId, "signature", "demo", "method", "UPI")), token);
     }
 
-    /** Invoices are sent in the background; wait until both the email and the SMS have been recorded. */
+    /** Invoices are emailed in the background; wait until the expected deliveries have been recorded. */
     private JsonNode awaitInvoiceNotifications(String token, long orderId, int expected) throws Exception {
         JsonNode invoice = null;
         for (int attempt = 0; attempt < 50; attempt++) {

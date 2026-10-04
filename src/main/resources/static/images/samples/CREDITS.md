@@ -20,3 +20,13 @@ They are demo placeholders only: the demo seller accounts did not create these w
 | `the-thinker.jpg` | Auguste Rodin, *The Thinker*, modeled 1880 (The Metropolitan Museum of Art) | CC0 | File:The Thinker MET DP-13618-011.jpg |
 | `la-grande-jatte.jpg` | Georges Seurat, *A Sunday on La Grande Jatte — 1884*, 1884–86 (Art Institute of Chicago) | Public domain | File:Georges Seurat - A Sunday on La Grande Jatte -- 1884 - Google Art Project.jpg |
 | `burghers-of-calais.jpg` | Auguste Rodin, *The Burghers of Calais*, modeled 1884–95 (The Metropolitan Museum of Art) | CC0 | File:The Burghers of Calais MET DP221863.jpg |
+| `impression-sunrise.jpg` | Claude Monet, *Impression, Sunrise*, 1872 (Musée Marmottan Monet) | Public domain | File:Monet - Impression, Sunrise.jpg |
+| `moulin-de-la-galette.jpg` | Pierre-Auguste Renoir, *Dance at Le Moulin de la Galette*, 1876 (Musée d'Orsay) | Public domain | File:Pierre-Auguste Renoir, Le Moulin de la Galette.jpg |
+| `the-fighting-temeraire.jpg` | J. M. W. Turner, *The Fighting Temeraire*, 1839 (The National Gallery, London) | Public domain | File:The Fighting Temeraire, JMW Turner, National Gallery.jpg |
+| `the-starry-night.jpg` | Vincent van Gogh, *The Starry Night*, 1889 (The Museum of Modern Art) | Public domain | File:Van Gogh - Starry Night - Google Art Project.jpg |
+| `sunflowers.jpg` | Vincent van Gogh, *Sunflowers*, 1888 (The National Gallery, London) | Public domain | File:Vincent van Gogh - Sunflowers (1888, National Gallery London).jpg |
+| `the-card-players.jpg` | Paul Cézanne, *The Card Players*, 1890–92 (The Metropolitan Museum of Art) | CC0 | File:The Card Players MET DP231550.jpg |
+| `red-fuji.jpg` | Katsushika Hokusai, *Fine Wind, Clear Morning (Red Fuji)*, c. 1830–32 | Public domain | File:Red Fuji southern wind clear morning.jpg |
+| `girl-with-a-pearl-earring.jpg` | Johannes Vermeer, *Girl with a Pearl Earring*, c. 1665 (Mauritshuis) | Public domain | File:1665 Girl with a Pearl Earring.jpg |
+| `the-kiss.jpg` | Gustav Klimt, *The Kiss*, 1907–08 (Belvedere, Vienna) | Public domain | File:The Kiss - Gustav Klimt - Google Cultural Institute.jpg |
+| `the-dancing-class.jpg` | Edgar Degas, *The Dancing Class*, c. 1870 (The Metropolitan Museum of Art) | CC0 | File:The Dancing Class - MET 29.100.184.jpg |

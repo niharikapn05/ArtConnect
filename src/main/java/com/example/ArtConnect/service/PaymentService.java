@@ -165,7 +165,7 @@ public class PaymentService {
     }
 
     private CheckoutResponse checkoutFor(Order order, CheckoutRequest contact) {
-        order.setBillingContact(contact.email().trim().toLowerCase(Locale.ROOT), normalizeIndianMobile(contact.phone()));
+        order.setBillingEmail(contact.email().trim().toLowerCase(Locale.ROOT));
         if (order.getProviderOrderId() == null || !gateway.name().equals(order.getPaymentProvider())) {
             String providerOrderId = gateway.createOrder(toSmallestUnit(order.getPrice()), currency,
                     "artconnect_order_" + order.getId());
@@ -174,7 +174,7 @@ public class PaymentService {
         return new CheckoutResponse(order.getId(), gateway.name(), gateway.publicKey(), order.getProviderOrderId(),
                 toSmallestUnit(order.getPrice()), currency, order.getArtworkTitle(),
                 order.getBuyer().getDisplayName(), order.getHoldExpiresAt(),
-                order.getBillingEmail(), order.getBillingPhone());
+                order.getBillingEmail());
     }
 
     /** Marks the order paid and the artwork sold, then announces it so the invoice is sent. Caller holds the order lock. */
@@ -196,17 +196,6 @@ public class PaymentService {
         if (artwork != null) artwork.setStatus(ArtworkStatus.SOLD);
         events.publishEvent(new OrderPaidEvent(order.getId()));
         return order;
-    }
-
-    /** "98765 43210", "+91-9876543210" or "09876543210" -> "+919876543210". */
-    static String normalizeIndianMobile(String phone) {
-        String digits = phone.replaceAll("\\D", "");
-        if (digits.length() == 12 && digits.startsWith("91")) digits = digits.substring(2);
-        if (digits.length() == 11 && digits.startsWith("0")) digits = digits.substring(1);
-        if (!digits.matches("[6-9]\\d{9}")) {
-            throw ApiException.badRequest("Enter a valid 10-digit Indian mobile number");
-        }
-        return "+91" + digits;
     }
 
     private Order lockOrder(Long orderId) {

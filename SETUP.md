@@ -85,7 +85,7 @@ Create a free account, open the *Dashboard*, and copy the three values into `.en
 
 Everything else (browsing, buying, bidding, reviews, and the sample data) works without Cloudinary; only *uploading new images* needs it.
 
-**Payments and invoices (optional):** out of the box everything runs in **demo mode**. *Buy now* asks for an email and mobile number, then opens a UPI-style demo checkout ("ArtConnect Pay": UPI QR/ID, cards, netbanking, wallets). No money moves. The invoice is "sent" to the demo `outbox/` folder: emails as `.html` files, texts in `sms.log`. To send real invoice emails/SMS, see *Invoices by email and SMS* in [README.md](README.md). To try the real Razorpay checkout, create a free Razorpay account, generate **Test Mode** keys, and add:
+**Payments and invoices (optional):** out of the box everything runs in **demo mode**. *Buy now* asks for an email address, then opens a UPI-style demo checkout ("ArtConnect Pay": UPI QR/ID, cards, netbanking, wallets). No money moves. The invoice email is "sent" to the demo `outbox/` folder as an `.html` file. To send real invoice emails, see *Invoices by email* in [README.md](README.md). To try the real Razorpay checkout, create a free Razorpay account, generate **Test Mode** keys, and add:
 
     PAYMENT_PROVIDER=razorpay
     RAZORPAY_KEY_ID=rzp_test_...
