@@ -1,0 +1,2 @@
+# ArtConnect
+ArtConnect Project
