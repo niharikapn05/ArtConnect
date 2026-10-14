@@ -28,5 +28,9 @@ They are demo placeholders only: the demo seller accounts did not create these w
 | `the-card-players.jpg` | Paul Cézanne, *The Card Players*, 1890–92 (The Metropolitan Museum of Art) | CC0 | File:The Card Players MET DP231550.jpg |
 | `red-fuji.jpg` | Katsushika Hokusai, *Fine Wind, Clear Morning (Red Fuji)*, c. 1830–32 | Public domain | File:Red Fuji southern wind clear morning.jpg |
 | `girl-with-a-pearl-earring.jpg` | Johannes Vermeer, *Girl with a Pearl Earring*, c. 1665 (Mauritshuis) | Public domain | File:1665 Girl with a Pearl Earring.jpg |
-| `the-kiss.jpg` | Gustav Klimt, *The Kiss*, 1907–08 (Belvedere, Vienna) | Public domain | File:The Kiss - Gustav Klimt - Google Cultural Institute.jpg |
 | `the-dancing-class.jpg` | Edgar Degas, *The Dancing Class*, c. 1870 (The Metropolitan Museum of Art) | CC0 | File:The Dancing Class - MET 29.100.184.jpg |
+| `woman-with-a-parasol.jpg` | Claude Monet, *Woman with a Parasol – Madame Monet and Her Son*, 1875 (National Gallery of Art, Washington) | Public domain | File:Claude Monet - Woman with a Parasol - Madame Monet and Her Son - Google Art Project.jpg |
+| `wheat-field-with-cypresses.jpg` | Vincent van Gogh, *Wheat Field with Cypresses*, 1889 (The Metropolitan Museum of Art) | CC0 | File:Wheat Field with Cypresses MET DT1567.jpg |
+| `the-milkmaid.jpg` | Johannes Vermeer, *The Milkmaid*, c. 1658 (Rijksmuseum) | Public domain | File:Johannes Vermeer - Het melkmeisje - Google Art Project.jpg |
+| `wanderer-above-the-sea-of-fog.jpg` | Caspar David Friedrich, *Wanderer above the Sea of Fog*, c. 1818 (Hamburger Kunsthalle) | Public domain | File:Caspar David Friedrich - Wanderer above the sea of fog.jpg |
+| `shakuntala.jpg` | Raja Ravi Varma, *Shakuntala*, 1870 | Public domain | File:Raja Ravi Varma - Mahabharata - Shakuntala.jpg |

@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import QRCode from "qrcode";
-import { mediaUrl, request } from "./api.js";
-import { useAuth } from "./auth.jsx";
+import { request } from "./api.js";
 import { formatPrice, timeLeft, useNow } from "./format.js";
 
 const RAZORPAY_SCRIPT = "https://checkout.razorpay.com/v1/checkout.js";
-const CONTACT_KEY = "artconnect.billing";
 
 /** Thrown when the buyer closes the payment window without paying. */
 export class PaymentCancelled extends Error {
@@ -17,19 +15,19 @@ export class PaymentCancelled extends Error {
 }
 
 /**
- * Checkout for one item. `openCheckout({ title, amount, imageUrl, subtitle, startCheckout })` opens the dialog;
- * startCheckout({ email }) must call the API (purchase or order checkout) and return its checkout details.
- * Resolves with { status: "paid", order } or { status: "closed", reserved } once the dialog closes.
- * Render `checkoutDialog` somewhere in the component.
+ * Payment for a checkout. `openPayment(start)` opens the dialog; start() must call the API (create or resume a
+ * checkout) and return the payment session. Resolves once the dialog closes with { status: "paid", checkout }
+ * (the paid checkout's details) or { status: "closed", checkoutId } (null if it never started).
+ * Render `paymentDialog` somewhere in the component.
  */
-export function useCheckout() {
+export function usePayment() {
   const [session, setSession] = useState(null);
 
-  const openCheckout = useCallback((options) => new Promise((resolve) => setSession({ ...options, resolve })), []);
+  const openPayment = useCallback((start) => new Promise((resolve) => setSession({ start, resolve })), []);
 
-  const checkoutDialog = session && (
-    <CheckoutDialog
-      {...session}
+  const paymentDialog = session && (
+    <PaymentDialog
+      start={session.start}
       onClose={(result) => {
         setSession(null);
         session.resolve(result);
@@ -37,23 +35,7 @@ export function useCheckout() {
     />
   );
 
-  return { openCheckout, checkoutDialog };
-}
-
-function loadSavedEmail() {
-  try {
-    return JSON.parse(localStorage.getItem(CONTACT_KEY))?.email ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function saveEmail(email) {
-  try {
-    localStorage.setItem(CONTACT_KEY, JSON.stringify({ email }));
-  } catch {
-    // Not remembering the email is harmless.
-  }
+  return { openPayment, paymentDialog };
 }
 
 const METHOD_LABELS = { UPI: "UPI", CARD: "Card", NETBANKING: "Net banking", WALLET: "Wallet", ONLINE: "Online payment" };
@@ -61,18 +43,16 @@ export function paymentMethodLabel(method) {
   return METHOD_LABELS[method] ?? "Online payment";
 }
 
-function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onClose }) {
-  const { user } = useAuth();
-  const [step, setStep] = useState("contact");
-  const [email, setEmail] = useState(loadSavedEmail);
-  const [checkout, setCheckout] = useState(null);
-  const [order, setOrder] = useState(null);
+function PaymentDialog({ start, onClose }) {
+  const [step, setStep] = useState("starting");
+  const [session, setSession] = useState(null);
+  const [paid, setPaid] = useState(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const started = useRef(false);
 
   const close = useCallback(() => {
-    onClose(order ? { status: "paid", order } : { status: "closed", reserved: Boolean(checkout) });
-  }, [onClose, order, checkout]);
+    onClose(paid ? { status: "paid", checkout: paid } : { status: "closed", checkoutId: session?.checkoutId ?? null });
+  }, [onClose, paid, session]);
 
   useEffect(() => {
     const onKey = (event) => {
@@ -82,54 +62,52 @@ function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onCl
     return () => window.removeEventListener("keydown", onKey);
   }, [close, step]);
 
-  async function verify(confirmation) {
+  const verify = useCallback(async (checkoutId, confirmation) => {
     setStep("verifying");
     setError("");
     try {
-      const paid = await request(`/api/orders/${checkout?.orderId ?? confirmation.orderId}/payment`, {
+      const result = await request(`/api/checkouts/${checkoutId}/payment`, {
         method: "POST",
         json: { providerOrderId: confirmation.providerOrderId, paymentId: confirmation.paymentId,
           signature: confirmation.signature, method: confirmation.method },
       });
-      setOrder(paid);
+      setPaid(result);
       setStep("success");
     } catch (verifyError) {
       setError(verifyError.message);
       setStep("failed");
     }
-  }
+  }, []);
 
-  async function continueToPayment(event) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
+  const payWithRazorpay = useCallback(async (payment) => {
+    setStep("razorpay");
     try {
-      const details = { email: email.trim() };
-      const started = await startCheckout(details);
-      saveEmail(details.email);
-      setCheckout(started);
-      if (started.provider === "razorpay") {
-        setStep("razorpay");
-        try {
-          const confirmation = await openRazorpay(started);
-          await verify({ ...confirmation, orderId: started.orderId });
-        } catch (razorpayError) {
-          if (razorpayError instanceof PaymentCancelled) {
-            setStep("cancelled");
-          } else {
-            setError(razorpayError.message);
-            setStep("failed");
-          }
-        }
+      await verify(payment.checkoutId, await openRazorpay(payment));
+    } catch (razorpayError) {
+      if (razorpayError instanceof PaymentCancelled) {
+        setStep("cancelled");
       } else {
-        setStep("gateway");
+        setError(razorpayError.message);
+        setStep("failed");
       }
-    } catch (startError) {
-      setError(startError.message);
-    } finally {
-      setBusy(false);
     }
-  }
+  }, [verify]);
+
+  // Create (or resume) the checkout once, as soon as the dialog opens
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    start()
+      .then((payment) => {
+        setSession(payment);
+        if (payment.provider === "razorpay") payWithRazorpay(payment);
+        else setStep("gateway");
+      })
+      .catch((startError) => {
+        setError(startError.message);
+        setStep("unavailable");
+      });
+  }, [start, payWithRazorpay]);
 
   return (
     <div className="payment-backdrop" role="presentation">
@@ -140,33 +118,26 @@ function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onCl
           </button>
         )}
 
-        {step === "contact" && (
-          <form onSubmit={continueToPayment}>
-            <h2 id="checkout-title">Checkout</h2>
-            <div className="checkout-item">
-              {imageUrl && <img src={mediaUrl(imageUrl)} alt="" />}
-              <div>
-                <strong>{title}</strong>
-                {subtitle && <span>{subtitle}</span>}
-              </div>
-              <span className="checkout-amount">{formatPrice(amount)}</span>
-            </div>
-            <p className="checkout-note">Your invoice will be emailed to this address.</p>
-            <label className="form-label" htmlFor="checkout-email">Email</label>
-            <input id="checkout-email" className="form-control mb-3" type="email" required autoComplete="email"
-              placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />
-            {error && <p className="text-danger" role="alert">{error}</p>}
-            <button type="submit" className="btn btn-primary btn-lg w-100" disabled={busy}>
-              {busy ? "Please wait..." : `Continue to pay ${formatPrice(amount)}`}
-            </button>
-            <p className="checkout-secure"><i className="fas fa-lock" aria-hidden="true" /> Secure payment · {user?.displayName}</p>
-          </form>
+        {step === "starting" && (
+          <div className="checkout-status">
+            <div className="spinner-border" role="status" aria-hidden="true" />
+            <h2 id="checkout-title">Reserving your artworks…</h2>
+          </div>
         )}
 
-        {step === "gateway" && checkout && (
+        {step === "unavailable" && (
+          <div className="checkout-status failed">
+            <span className="checkout-cross" aria-hidden="true"><i className="fas fa-xmark" /></span>
+            <h2 id="checkout-title">Couldn&rsquo;t start the payment</h2>
+            <p>{error}</p>
+            <button type="button" className="btn btn-outline-dark" onClick={close}>Close</button>
+          </div>
+        )}
+
+        {step === "gateway" && session && (
           <DemoGateway
-            checkout={checkout}
-            onPaid={verify}
+            checkout={session}
+            onPaid={(confirmation) => verify(session.checkoutId, confirmation)}
             onFailed={(message) => { setError(message); setStep("failed"); }}
           />
         )}
@@ -187,22 +158,24 @@ function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onCl
           </div>
         )}
 
-        {step === "success" && order && (
+        {step === "success" && paid && (
           <div className="checkout-status success">
             <span className="checkout-tick" aria-hidden="true"><i className="fas fa-check" /></span>
             <h2 id="checkout-title">Payment successful</h2>
-            <p className="checkout-paid-amount">{formatPrice(order.price)}</p>
+            <p className="checkout-paid-amount">{formatPrice(paid.total)}</p>
             <dl className="checkout-receipt">
-              <dt>Artwork</dt><dd>{order.artworkTitle}</dd>
-              <dt>Invoice</dt><dd>{order.invoiceNumber}</dd>
-              <dt>Paid by</dt><dd>{paymentMethodLabel(order.paymentMethod)}</dd>
-              <dt>Reference</dt><dd><code>{order.paymentId}</code></dd>
+              <dt>{paid.items.length === 1 ? "Artwork" : "Artworks"}</dt>
+              <dd>{paid.items.map((item) => item.artworkTitle).join(", ")}</dd>
+              <dt>Invoice</dt><dd>{paid.invoiceNumber}</dd>
+              <dt>Paid by</dt><dd>{paymentMethodLabel(paid.paymentMethod)}</dd>
+              {paid.shippingAddress && <><dt>Ship to</dt><dd>{paid.shippingAddress.fullName}, {paid.shippingAddress.city}</dd></>}
+              <dt>Reference</dt><dd><code>{paid.paymentId}</code></dd>
             </dl>
             <p className="checkout-note">
-              <i className="fas fa-envelope" aria-hidden="true" /> Invoice is on its way to <strong>{order.billingEmail}</strong>.
+              <i className="fas fa-envelope" aria-hidden="true" /> Invoice is on its way to <strong>{paid.billingEmail}</strong>.
             </p>
             <div className="d-flex gap-2">
-              <Link to={`/orders/${order.id}/invoice`} className="btn btn-primary flex-grow-1" onClick={close}>View invoice</Link>
+              <Link to={`/checkouts/${paid.id}/invoice`} className="btn btn-primary flex-grow-1" onClick={close}>View invoice</Link>
               <button type="button" className="btn btn-outline-dark" onClick={close}>Done</button>
             </div>
           </div>
@@ -213,10 +186,12 @@ function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onCl
             <span className="checkout-cross" aria-hidden="true"><i className="fas fa-xmark" /></span>
             <h2 id="checkout-title">{step === "cancelled" ? "Payment not completed" : "Payment failed"}</h2>
             <p>{step === "cancelled" ? "You closed the payment window before paying." : error}</p>
-            <p className="checkout-note">No money has been taken. The artwork stays reserved for you for a short while.</p>
+            <p className="checkout-note">No money has been taken. Your artworks stay reserved for you for a short while.</p>
             <div className="d-flex gap-2">
-              {checkout?.provider !== "razorpay" && (
+              {session?.provider !== "razorpay" ? (
                 <button type="button" className="btn btn-primary flex-grow-1" onClick={() => { setError(""); setStep("gateway"); }}>Try again</button>
+              ) : (
+                <button type="button" className="btn btn-primary flex-grow-1" onClick={() => { setError(""); payWithRazorpay(session); }}>Try again</button>
               )}
               <button type="button" className="btn btn-outline-dark" onClick={close}>Close</button>
             </div>
@@ -226,6 +201,7 @@ function CheckoutDialog({ title, subtitle, amount, imageUrl, startCheckout, onCl
     </div>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Razorpay (real gateway, free test mode)                             */
@@ -258,7 +234,7 @@ async function openRazorpay(checkout) {
     ? Math.floor((new Date(checkout.holdExpiresAt).getTime() - Date.now()) / 1000) - 60
     : null;
   if (secondsLeft !== null && secondsLeft < 60) {
-    throw new Error("Your reservation has almost expired. Please start the purchase again.");
+    throw new Error("Your reservation has almost expired. Please check out again.");
   }
 
   return new Promise((resolve, reject) => {
@@ -269,7 +245,7 @@ async function openRazorpay(checkout) {
       amount: checkout.amount,
       currency: checkout.currency,
       name: "ArtConnect",
-      description: checkout.artworkTitle,
+      description: checkout.description,
       prefill: { name: checkout.buyerName, email: checkout.email },
       theme: { color: "#1a1a1a" },
       ...(secondsLeft !== null && { timeout: secondsLeft }),
@@ -358,7 +334,7 @@ function DemoGateway({ checkout, onPaid, onFailed }) {
           <span className="gateway-demo">DEMO</span>
         </div>
         <div className="gateway-merchant">
-          <span>{checkout.artworkTitle}</span>
+          <span>{checkout.description}</span>
           <strong id="checkout-title">{amount}</strong>
         </div>
       </header>

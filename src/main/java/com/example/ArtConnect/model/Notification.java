@@ -14,7 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-/** A record of an invoice email sent (or simulated) for an order. */
+/** A record of an invoice email sent (or simulated) for a checkout. */
 @Entity
 @Table(name = "notifications")
 public class Notification {
@@ -28,9 +28,9 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id")
-    private Order order;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "checkout_id")
+    private Checkout checkout;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
@@ -57,9 +57,9 @@ public class Notification {
 
     protected Notification() {}
 
-    public Notification(Order order, Channel channel, String recipient, String subject,
+    public Notification(Checkout checkout, Channel channel, String recipient, String subject,
                         Status status, String provider, String error) {
-        this.order = order;
+        this.checkout = checkout;
         this.channel = channel;
         this.recipient = recipient;
         this.subject = subject;
@@ -70,7 +70,7 @@ public class Notification {
     }
 
     public Long getId() { return id; }
-    public Order getOrder() { return order; }
+    public Checkout getCheckout() { return checkout; }
     public Channel getChannel() { return channel; }
     public String getRecipient() { return recipient; }
     public String getSubject() { return subject; }

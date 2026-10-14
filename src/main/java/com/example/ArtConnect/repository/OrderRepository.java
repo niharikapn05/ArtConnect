@@ -1,6 +1,5 @@
 package com.example.ArtConnect.repository;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,7 +13,7 @@ import com.example.ArtConnect.model.OrderStatus;
 import jakarta.persistence.LockModeType;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
-    /** Locks the order so payment, cancellation and expiry can't change it at the same time. */
+    /** Locks the order so payment, cancellation and completion can't change it at the same time. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id = :id")
     Optional<Order> findByIdForUpdate(Long id);
@@ -23,12 +22,5 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByArtistIdOrderByCreatedAtDesc(Long artistId);
 
-    Optional<Order> findByProviderOrderId(String providerOrderId);
-
-    /** The buyer's unpaid order for an artwork, if they already started checkout. */
-    Optional<Order> findFirstByArtworkIdAndBuyerIdAndStatus(Long artworkId, Long buyerId, OrderStatus status);
-
-    @Query("select o.id from Order o where o.status = com.example.ArtConnect.model.OrderStatus.AWAITING_PAYMENT"
-            + " and o.holdExpiresAt <= :now")
-    List<Long> findExpiredHoldIds(Instant now);
+    boolean existsByArtworkIdAndBuyerIdAndStatus(Long artworkId, Long buyerId, OrderStatus status);
 }

@@ -5,11 +5,13 @@ It takes about 15–20 minutes, most of which is installing tools.
 
 ArtConnect has three parts, and all three must be running:
 
-| Part | Technology | Address |
-|------|------------|---------|
-| Database | PostgreSQL | `localhost:5432` |
-| Backend (API) | Spring Boot (Java) | http://localhost:8081 |
-| Frontend (website) | React (Vite) | http://localhost:5173 ← open this one in your browser |
+| Part | Technology | Default address | Setting that changes it |
+|------|------------|-----------------|-------------------------|
+| Database | PostgreSQL | `localhost:8081` | `DB_URL` in `.env` |
+| Backend (API) | Spring Boot (Java) | http://localhost:8083 | `PORT` in `.env` (+ `API_PROXY_TARGET` in `frontend/.env.local`) |
+| Frontend (website) | React (Vite) | http://localhost:5173 ← open this one in your browser | Vite picks the next free port if 5173 is busy |
+
+> PostgreSQL normally runs on port **5432**. This project's defaults assume it runs on **8081**. If yours uses 5432 (or any other port), just put that port in `DB_URL` in step 4.
 
 Commands below are for **Windows (PowerShell)**. macOS/Linux differences are noted where they matter.
 
@@ -27,7 +29,7 @@ Commands below are for **Windows (PowerShell)**. macOS/Linux differences are not
 You do **not** need to install Maven. The project includes a Maven wrapper (`mvnw.cmd` / `mvnw`) that downloads it automatically.
 
 **PostgreSQL install tips (Windows):**
-- Keep the default port **5432**.
+- The installer asks for a port. Use **8081** to match this project's defaults, or keep **5432** and put 5432 in `DB_URL` in step 4.
 - The installer asks for a password for the `postgres` user. **Write it down**; you need it in step 4.
 - You can untick *Stack Builder* at the end.
 
@@ -46,19 +48,29 @@ Open a **new** terminal after installing, so the new commands are found.
 
 ## 3. Create the database
 
-Create an empty database named `artconnect`:
+Create an empty database named `artconnect` (`-p` is PostgreSQL's port; use 5432 if that's yours):
 
-    psql -U postgres -c "CREATE DATABASE artconnect"
+    psql -h localhost -p 8081 -U postgres -c "CREATE DATABASE artconnect"
 
 Enter the `postgres` password from step 1 when asked.
 
 > **`psql` is not recognized?** Use the full path instead (change `18` to your version):
 >
->     & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE DATABASE artconnect"
+>     & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 8081 -U postgres -c "CREATE DATABASE artconnect"
 >
 > Or use **pgAdmin** (installed with PostgreSQL): right-click *Databases* → *Create* → *Database…* → name it `artconnect` → *Save*.
 
-You only create the empty database. **Tables and sample data are created automatically** the first time the backend starts.
+Now fill it with the tables and sample data. Pick **one** option:
+
+- **Option A (automatic, recommended):** do nothing. The backend creates all tables and loads the sample data itself the first time it starts (step 5).
+- **Option B (run the SQL yourself):** load the complete script, which creates every table and inserts all the sample data:
+
+      psql -h localhost -p 8081 -U postgres -d artconnect -f database/artconnect.sql
+
+  (Or in pgAdmin: select the `artconnect` database → *Query Tool* → open `database/artconnect.sql` → *Execute*.)
+  The backend recognises the already-populated database when it starts and won't load the data twice.
+
+Either way you end up with the same data. Run the script only on an **empty** database.
 
 ---
 
@@ -72,9 +84,11 @@ Secrets are not stored in the code. Copy the example file and fill it in:
 
 Open `.env` in a text editor and set at least:
 
-    DB_URL=jdbc:postgresql://localhost:5432/artconnect
+    DB_URL=jdbc:postgresql://localhost:8081/artconnect
     DB_USERNAME=postgres
     DB_PASSWORD=your-postgres-password
+
+The number after `localhost:` in `DB_URL` is your PostgreSQL port. To run the backend on a port other than 8083, also add `PORT=<number>`, and tell the frontend in `frontend/.env.local` (see step 6).
 
 **Cloudinary (image uploads):** artwork and profile-photo uploads are stored on [Cloudinary](https://cloudinary.com).
 Create a free account, open the *Dashboard*, and copy the three values into `.env`:
@@ -85,7 +99,7 @@ Create a free account, open the *Dashboard*, and copy the three values into `.en
 
 Everything else (browsing, buying, bidding, reviews, and the sample data) works without Cloudinary; only *uploading new images* needs it.
 
-**Payments and invoices (optional):** out of the box everything runs in **demo mode**. *Buy now* asks for an email address, then opens a UPI-style demo checkout ("ArtConnect Pay": UPI QR/ID, cards, netbanking, wallets). No money moves. The invoice email is "sent" to the demo `outbox/` folder as an `.html` file. To send real invoice emails, see *Invoices by email* in [README.md](README.md). To try the real Razorpay checkout, create a free Razorpay account, generate **Test Mode** keys, and add:
+**Payments and invoices (optional):** out of the box everything runs in **demo mode**. *Add to cart* → *Cart* → *Checkout* asks for a shipping address and email, then opens a UPI-style demo checkout ("ArtConnect Pay": UPI QR/ID, cards, netbanking, wallets). No money moves. The invoice email is "sent" to the demo `outbox/` folder as an `.html` file. To send real invoice emails, see *Invoices by email* in [README.md](README.md). To try the real Razorpay checkout, create a free Razorpay account, generate **Test Mode** keys, and add:
 
     PAYMENT_PROVIDER=razorpay
     RAZORPAY_KEY_ID=rzp_test_...
@@ -109,13 +123,13 @@ The first run downloads dependencies and takes a few minutes. It is ready when y
 
     Started ArtConnectApplication in ... seconds
 
-On this first start it also:
+On this first start (if you chose option A in step 3) it also:
 - creates all the database tables, and
 - loads the sample data (artists, artworks, auctions, reviews, exhibitions).
 
 **Leave this terminal open**; closing it stops the backend.
 
-Quick check: open http://localhost:8081/api/categories. You should see a list of categories.
+Quick check: open http://localhost:8083/api/categories. You should see a list of categories.
 
 ---
 
@@ -128,9 +142,15 @@ Open a **second** terminal:
     npm run dev
 
 `npm install` is only needed the first time (and after dependencies change).
-
-*(Optional)* To make the **Contact us** form work, copy `frontend/.env.example` to `frontend/.env.local` and set `VITE_CONTACT_EMAIL` to the address that should receive messages. The first message triggers a confirmation email from FormSubmit that must be clicked once. Without it, the Contact page shows a short "not available" note instead of the form.
 It is ready when you see `Local: http://localhost:5173/`.
+
+The website sends its API requests to the backend at **http://localhost:8083**. If your backend runs on another port, create `frontend/.env.local` (copy `frontend/.env.example`) and set:
+
+    API_PROXY_TARGET=http://localhost:<backend port>
+
+then restart `npm run dev`.
+
+*(Optional)* To make the **Contact us** form work, set `VITE_CONTACT_EMAIL` in the same `frontend/.env.local` to the address that should receive messages. The first message triggers a confirmation email from FormSubmit that must be clicked once. Without it, the Contact page shows a short "not available" note instead of the form.
 
 **Leave this terminal open too.**
 
@@ -181,15 +201,15 @@ Open http://localhost:5173. To stop a server, press **Ctrl + C** in its terminal
 |---------|-----|
 | `password authentication failed for user "postgres"` | `DB_PASSWORD` in `.env` is wrong. |
 | `database "artconnect" does not exist` | You skipped step 3. |
-| `Connection to localhost:5432 refused` | PostgreSQL isn't running. Windows: press Win+R → `services.msc` → start **postgresql-x64-NN**. macOS (Homebrew): `brew services start postgresql`. |
-| `Port 8081 was already in use` | Another backend is still running. Close its terminal, or find it with `netstat -ano \| findstr :8081` and stop it with `taskkill /PID <id> /F`. |
+| `Connection to localhost:8081 refused` (or your DB port) | PostgreSQL isn't running, or `DB_URL` has the wrong port. Windows: press Win+R → `services.msc` → start **postgresql-x64-NN**. macOS (Homebrew): `brew services start postgresql`. |
+| `Port 8083 was already in use` | Another backend is still running. Close its terminal, or find it with `netstat -ano \| findstr :8083` and stop it with `taskkill /PID <id> /F`. |
 | `JAVA_HOME is not set` / `java` not found | Install the JDK (step 1) and open a new terminal. |
-| Website loads but shows errors / no artworks | The backend isn't running, or not on port 8081. Start it (step 5) and refresh. |
+| Website loads but shows errors / no artworks | The backend isn't running, or `API_PROXY_TARGET` in `frontend/.env.local` doesn't match its port (default 8083). Start it (step 5) and refresh. |
 | `npm install` fails | Check `node -v` meets the version in step 1, then delete `frontend/node_modules` and retry. |
 | Image upload says it failed | Check the three `CLOUDINARY_*` values in `.env`, then restart the backend. |
 | Backend won't start: `needs RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET` | You set `PAYMENT_PROVIDER=razorpay` without keys. Add the keys, or set `PAYMENT_PROVIDER=mock`. |
 | "The payment service is unavailable" | The Razorpay keys are wrong, or the server can't reach api.razorpay.com. Check the keys and the backend log. |
-| An artwork shows **Reserved** | A buyer started checkout and has 30 minutes to pay. If they don't, it returns to sale automatically. |
+| An artwork shows **Reserved** | A buyer started checkout and has 30 minutes to pay. If they don't, it returns to sale automatically. In your cart it shows as unavailable until then. |
 | Changed `.env` but nothing happened | `.env` is read at startup. Restart the backend (Ctrl + C, then step 5 again). |
 
 ---

@@ -7,6 +7,7 @@ import { LoginPage, ProfilePage, RegisterPage } from "./pages/AccountPages.jsx";
 import { ArtistProfilePage, ArtistsPage } from "./pages/ArtistPages.jsx";
 import ArtworkPage from "./pages/ArtworkPage.jsx";
 import BrowsePage from "./pages/BrowsePage.jsx";
+import { CartPage, CheckoutPage } from "./pages/CartPages.jsx";
 import CollectionPage from "./pages/CollectionPage.jsx";
 import { ExhibitionFormPage, ExhibitionPage, ExhibitionsPage } from "./pages/ExhibitionPages.jsx";
 import HomePage from "./pages/HomePage.jsx";
@@ -69,7 +70,9 @@ export default function App() {
       <Route path="/studio/upload" element={member(<ArtworkFormPage key="upload" />, { artist: true })} />
       <Route path="/studio/artworks/:id/edit" element={member(<ArtworkFormPage key="edit" />, { artist: true })} />
       <Route path="/collection" element={member(<CollectionPage />)} />
-      <Route path="/orders/:id/invoice" element={member(<InvoicePage />)} />
+      <Route path="/cart" element={site(<CartPage />)} />
+      <Route path="/checkout" element={member(<CheckoutPage />)} />
+      <Route path="/checkouts/:id/invoice" element={member(<InvoicePage />)} />
       <Route path="/profile" element={member(<ProfilePage />)} />
       <Route path="/about" element={site(<AboutPage />)} />
       <Route path="/contact" element={site(<ContactPage />)} />

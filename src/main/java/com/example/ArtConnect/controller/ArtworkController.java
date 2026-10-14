@@ -24,8 +24,6 @@ import com.example.ArtConnect.dto.ArtworkDtos.ArtworkSearch;
 import com.example.ArtConnect.dto.ArtworkDtos.PageResponse;
 import com.example.ArtConnect.dto.MarketDtos.BidRequest;
 import com.example.ArtConnect.dto.MarketDtos.BidResponse;
-import com.example.ArtConnect.dto.MarketDtos.CheckoutRequest;
-import com.example.ArtConnect.dto.MarketDtos.CheckoutResponse;
 import com.example.ArtConnect.dto.MarketDtos.ReviewRequest;
 import com.example.ArtConnect.dto.MarketDtos.ReviewResponse;
 import com.example.ArtConnect.model.Categories;
@@ -33,7 +31,6 @@ import com.example.ArtConnect.model.User;
 import com.example.ArtConnect.security.CurrentUser;
 import com.example.ArtConnect.service.ArtworkService;
 import com.example.ArtConnect.service.AuctionService;
-import com.example.ArtConnect.service.PaymentService;
 import com.example.ArtConnect.service.ReviewService;
 
 import jakarta.validation.Valid;
@@ -44,14 +41,12 @@ public class ArtworkController {
 
     private final ArtworkService artworkService;
     private final AuctionService auctionService;
-    private final PaymentService paymentService;
     private final ReviewService reviewService;
 
     public ArtworkController(ArtworkService artworkService, AuctionService auctionService,
-                             PaymentService paymentService, ReviewService reviewService) {
+                             ReviewService reviewService) {
         this.artworkService = artworkService;
         this.auctionService = auctionService;
-        this.paymentService = paymentService;
         this.reviewService = reviewService;
     }
 
@@ -89,13 +84,6 @@ public class ArtworkController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@CurrentUser User user, @PathVariable Long id) {
         artworkService.delete(user, id);
-    }
-
-    @PostMapping("/artworks/{id}/purchase")
-    @ResponseStatus(HttpStatus.CREATED)
-    public CheckoutResponse purchase(@CurrentUser User user, @PathVariable Long id,
-                                     @Valid @RequestBody CheckoutRequest contact) {
-        return paymentService.purchase(user, id, contact);
     }
 
     @GetMapping("/artworks/{id}/bids")

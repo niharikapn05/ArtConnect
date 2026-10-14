@@ -102,14 +102,19 @@ export function StudioPage() {
                   {sales.data.map((order) => (
                     <tr key={order.id}>
                       <td>{order.artworkId ? <Link to={`/artworks/${order.artworkId}`}>{order.artworkTitle}</Link> : order.artworkTitle}</td>
-                      <td>{order.buyerName}</td>
+                      <td>
+                        {order.buyerName}
+                        {order.shippingAddress && order.status !== "CANCELLED" && (
+                          <small className="d-block text-muted">Ship to {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}</small>
+                        )}
+                      </td>
                       <td>{formatPrice(order.price)}</td>
                       <td>{order.source === "AUCTION" ? "Auction" : "Purchase"}</td>
                       <td>{formatDate(order.createdAt)}</td>
                       <td><OrderStatus status={order.status} /></td>
                       <td className="text-end text-nowrap">
                         {order.invoiceNumber && (
-                          <Link to={`/orders/${order.id}/invoice`} className="btn btn-outline-dark btn-sm me-1">Invoice</Link>
+                          <Link to={`/checkouts/${order.checkoutId}/invoice`} className="btn btn-outline-dark btn-sm me-1">Invoice</Link>
                         )}
                         {order.status === "PAID" && (
                           <button type="button" className="btn btn-success btn-sm" onClick={() => completeSale(order)}>Mark delivered</button>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { mediaUrl } from "./api.js";
 import { useAuth } from "./auth.jsx";
+import { useCart } from "./cart.jsx";
 import { formatPrice, timeLeft, useNow } from "./format.js";
 
 /** Category shortcuts in the header, as in a gallery's "shop by medium" menu. */
@@ -17,6 +18,7 @@ const MENU_CATEGORIES = [
 
 export function Header() {
   const { user, isArtist, logout } = useAuth();
+  const { count } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(location.search);
@@ -72,6 +74,10 @@ export function Header() {
               <Link className="btn btn-primary btn-sm" to="/register">Join</Link>
             </>
           )}
+          <NavLink to="/cart" className="nav-cart" aria-label={count ? `Cart, ${count} ${count === 1 ? "item" : "items"}` : "Cart"}>
+            <i className="fas fa-bag-shopping" aria-hidden="true" />
+            {count > 0 && <span className="cart-badge">{count}</span>}
+          </NavLink>
         </nav>
       </div>
       <nav className="category-nav" aria-label="Browse">

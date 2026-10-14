@@ -2,7 +2,6 @@ package com.example.ArtConnect.model;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.ZoneOffset;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,6 +15,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+/**
+ * One artwork bought by one buyer. Payment, shipping address and invoice live on the {@link Checkout}
+ * the order belongs to (a won auction has no checkout until the winner starts paying).
+ */
 @Entity
 @Table(name = "orders")
 public class Order {
@@ -35,6 +38,10 @@ public class Order {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "artist_id")
     private User artist;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "checkout_id")
+    private Checkout checkout;
 
     @Column(name = "artwork_title", nullable = false, length = 120)
     private String artworkTitle;
@@ -59,38 +66,9 @@ public class Order {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    // Payment gateway details
-    @Column(name = "payment_provider", length = 20)
-    private String paymentProvider;
-
-    /** The gateway's order id (e.g. Razorpay "order_..."), created at checkout. */
-    @Column(name = "provider_order_id", length = 64, unique = true)
-    private String providerOrderId;
-
-    @Column(name = "payment_id", length = 64)
-    private String paymentId;
-
-    @Column(name = "paid_at")
-    private Instant paidAt;
-
-    /** An unpaid order is cancelled and the artwork released after this time; null means no expiry. */
-    @Column(name = "hold_expires_at")
-    private Instant holdExpiresAt;
-
-    /** Billing email entered at checkout; the invoice is sent here. */
-    @Column(name = "billing_email", length = 254)
-    private String billingEmail;
-
-    /** UPI, CARD, NETBANKING, WALLET, or ONLINE when the gateway doesn't say. */
-    @Column(name = "payment_method", length = 20)
-    private String paymentMethod;
-
-    @Column(name = "invoice_number", length = 30, unique = true)
-    private String invoiceNumber;
-
     protected Order() {}
 
-    public Order(Artwork artwork, User buyer, OrderSource source, BigDecimal price, Instant holdExpiresAt) {
+    public Order(Artwork artwork, User buyer, OrderSource source, BigDecimal price) {
         this.artwork = artwork;
         this.buyer = buyer;
         this.artist = artwork.getArtist();
@@ -99,7 +77,6 @@ public class Order {
         this.price = price;
         this.source = source;
         this.status = OrderStatus.AWAITING_PAYMENT;
-        this.holdExpiresAt = holdExpiresAt;
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
     }
@@ -109,32 +86,16 @@ public class Order {
         this.updatedAt = Instant.now();
     }
 
-    public void attachPaymentOrder(String provider, String providerOrderId) {
-        this.paymentProvider = provider;
-        this.providerOrderId = providerOrderId;
+    public void attachTo(Checkout checkout) {
+        this.checkout = checkout;
         this.updatedAt = Instant.now();
     }
-
-    public void setBillingEmail(String email) {
-        this.billingEmail = email;
-        this.updatedAt = Instant.now();
-    }
-
-    /** Records the verified payment and issues the invoice number, e.g. INV-2026-000042. */
-    public void markPaid(String paymentId, String paymentMethod) {
-        this.paymentId = paymentId;
-        this.paymentMethod = paymentMethod;
-        this.paidAt = Instant.now();
-        this.holdExpiresAt = null;
-        this.invoiceNumber = "INV-%d-%06d".formatted(paidAt.atZone(ZoneOffset.UTC).getYear(), id);
-        changeStatus(OrderStatus.PAID);
-    }
-
 
     public Long getId() { return id; }
     public Artwork getArtwork() { return artwork; }
     public User getBuyer() { return buyer; }
     public User getArtist() { return artist; }
+    public Checkout getCheckout() { return checkout; }
     public String getArtworkTitle() { return artworkTitle; }
     public String getImageUrl() { return imageUrl; }
     public BigDecimal getPrice() { return price; }
@@ -142,12 +103,4 @@ public class Order {
     public OrderStatus getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
-    public String getPaymentProvider() { return paymentProvider; }
-    public String getProviderOrderId() { return providerOrderId; }
-    public String getPaymentId() { return paymentId; }
-    public Instant getPaidAt() { return paidAt; }
-    public Instant getHoldExpiresAt() { return holdExpiresAt; }
-    public String getBillingEmail() { return billingEmail; }
-    public String getPaymentMethod() { return paymentMethod; }
-    public String getInvoiceNumber() { return invoiceNumber; }
 }

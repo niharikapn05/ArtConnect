@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.ArtConnect.service.PaymentService;
+import com.example.ArtConnect.service.CheckoutService;
 
 /**
  * Server-to-server payment notifications. Point the Razorpay dashboard webhook
@@ -17,16 +17,16 @@ import com.example.ArtConnect.service.PaymentService;
 @RequestMapping("/api/payments")
 public class PaymentWebhookController {
 
-    private final PaymentService paymentService;
+    private final CheckoutService checkoutService;
 
-    public PaymentWebhookController(PaymentService paymentService) {
-        this.paymentService = paymentService;
+    public PaymentWebhookController(CheckoutService checkoutService) {
+        this.checkoutService = checkoutService;
     }
 
     @PostMapping("/razorpay/webhook")
     public ResponseEntity<Void> razorpayWebhook(@RequestBody String payload,
                                                 @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature) {
-        paymentService.handleWebhook(payload, signature);
+        checkoutService.handleWebhook(payload, signature);
         return ResponseEntity.ok().build();
     }
 }

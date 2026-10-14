@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { mediaUrl, request, useApi } from "../api.js";
+import { useCart } from "../cart.jsx";
 import { Countdown, EmptyState, PageState } from "../components.jsx";
 import { formatDate, formatPrice } from "../format.js";
-import { paymentMethodLabel, useCheckout } from "../payment.jsx";
+import { paymentMethodLabel, usePayment } from "../payment.jsx";
 import { OrderStatus } from "./StudioPages.jsx";
 
 /** A collector's purchases and auction bids. */
@@ -12,37 +13,37 @@ export default function CollectionPage() {
   const tab = params.get("tab") ?? "orders";
   const orders = useApi("/api/me/orders");
   const bids = useApi("/api/me/bids");
+  const cart = useCart();
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
   const [payingId, setPayingId] = useState(null);
-  const { openCheckout, checkoutDialog } = useCheckout();
+  const { openPayment, paymentDialog } = usePayment();
+
+  /** Every order paid for together shares one checkout; paying or cancelling acts on all of them. */
+  const checkoutSize = (order) => orders.data?.filter((item) => item.checkoutId === order.checkoutId).length ?? 1;
 
   async function pay(order) {
     setActionError("");
     setNotice("");
-    setPayingId(order.id);
-    const result = await openCheckout({
-      title: order.artworkTitle,
-      subtitle: order.source === "AUCTION" ? "Won at auction" : `by ${order.artistName}`,
-      amount: order.price,
-      imageUrl: order.imageUrl,
-      startCheckout: (contact) => request(`/api/orders/${order.id}/checkout`, { method: "POST", json: contact }),
-    });
+    setPayingId(order.checkoutId);
+    const result = await openPayment(() => request(`/api/checkouts/${order.checkoutId}/pay`, { method: "POST" }));
     if (result.status === "paid") {
-      orders.setData((current) => current.map((item) => (item.id === result.order.id ? result.order : item)));
-      setNotice(`Payment received for "${result.order.artworkTitle}". Invoice ${result.order.invoiceNumber} has been sent to ${result.order.billingEmail}.`);
-    } else {
-      orders.reload({ quiet: true });
+      setNotice(`Payment received. Invoice ${result.checkout.invoiceNumber} has been sent to ${result.checkout.billingEmail}.`);
+      cart.reload();
     }
+    orders.reload({ quiet: true });
     setPayingId(null);
   }
 
   async function cancel(order) {
-    if (!window.confirm(`Cancel your order for "${order.artworkTitle}"? It will go back on sale.`)) return;
+    const others = checkoutSize(order) - 1;
+    const what = others > 0 ? `"${order.artworkTitle}" and ${others} other ${others === 1 ? "artwork" : "artworks"} bought with it` : `"${order.artworkTitle}"`;
+    if (!window.confirm(`Cancel your order for ${what}? ${others > 0 ? "They" : "It"} will go back on sale.`)) return;
     setActionError("");
     try {
-      const updated = await request(`/api/orders/${order.id}/cancel`, { method: "POST" });
-      orders.setData((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      await request(`/api/orders/${order.id}/cancel`, { method: "POST" });
+      orders.reload({ quiet: true });
+      cart.reload();
     } catch (requestError) {
       setActionError(requestError.message);
     }
@@ -58,7 +59,7 @@ export default function CollectionPage() {
       </div>
       {actionError && <p className="text-danger" role="alert">{actionError}</p>}
       {notice && <p className="text-success-light" role="status">{notice}</p>}
-      {checkoutDialog}
+      {paymentDialog}
 
       {tab === "orders" && (
         <PageState loading={orders.loading} error={orders.error}>
@@ -74,6 +75,12 @@ export default function CollectionPage() {
                     {order.status === "AWAITING_PAYMENT" && order.holdExpiresAt && (
                       <p>Reserved for you for <Countdown endsAt={order.holdExpiresAt} /></p>
                     )}
+                    {order.status === "AWAITING_PAYMENT" && order.checkoutId && checkoutSize(order) > 1 && (
+                      <p>Checked out together with {checkoutSize(order) - 1} other {checkoutSize(order) === 2 ? "artwork" : "artworks"}</p>
+                    )}
+                    {order.shippingAddress && order.status !== "CANCELLED" && (
+                      <p>Ship to {order.shippingAddress.fullName}, {order.shippingAddress.city} {order.shippingAddress.postalCode}</p>
+                    )}
                     {order.invoiceNumber && (
                       <p>Invoice {order.invoiceNumber} · {paymentMethodLabel(order.paymentMethod)} · ref. <code>{order.paymentId}</code></p>
                     )}
@@ -81,15 +88,19 @@ export default function CollectionPage() {
                   <div className="order-actions">
                     <OrderStatus status={order.status} />
                     {order.invoiceNumber && (
-                      <Link to={`/orders/${order.id}/invoice`} className="btn btn-outline-dark btn-sm">
+                      <Link to={`/checkouts/${order.checkoutId}/invoice`} className="btn btn-outline-dark btn-sm">
                         <i className="fas fa-file-invoice" aria-hidden="true" /> Invoice
                       </Link>
                     )}
                     {order.status === "AWAITING_PAYMENT" && (
                       <>
-                        <button type="button" className="btn btn-primary btn-sm" disabled={payingId !== null} onClick={() => pay(order)}>
-                          {payingId === order.id ? "Processing..." : "Pay now"}
-                        </button>
+                        {order.checkoutId ? (
+                          <button type="button" className="btn btn-primary btn-sm" disabled={payingId !== null} onClick={() => pay(order)}>
+                            {payingId === order.checkoutId ? "Processing..." : "Pay now"}
+                          </button>
+                        ) : (
+                          <Link to={`/checkout?order=${order.id}`} className="btn btn-primary btn-sm">Checkout</Link>
+                        )}
                         <button type="button" className="btn btn-outline-danger btn-sm" disabled={payingId !== null} onClick={() => cancel(order)}>Cancel</button>
                       </>
                     )}
